@@ -23,7 +23,7 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 ## test
 
 ```bash
-docker run -it --rm -v `pwd`/..:/root/code ghcr.io/cybrid-systems/dev /bin/zsh
+docker run -it --rm -v `pwd`/..:/root/code -w /root/code ghcr.io/cybrid-systems/dev /bin/zsh
 ```
 
 ## run
