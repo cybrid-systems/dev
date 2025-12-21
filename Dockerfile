@@ -34,5 +34,8 @@ COPY *.el /root/
 COPY build-doom.sh /root/build-doom.sh
 RUN /root/build-doom.sh
 
+# fixit
+RUN /root/build-fixit.sh
+
 # clear
 RUN cd && rm *.sh
