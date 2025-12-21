@@ -35,6 +35,7 @@ COPY build-doom.sh /root/build-doom.sh
 RUN /root/build-doom.sh
 
 # fixit
+COPY build-fixit.sh /root/build-fixit.sh
 RUN /root/build-fixit.sh
 
 # clear
