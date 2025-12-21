@@ -8,12 +8,12 @@ docker buildx create --use
 
 ## build and deploy
 
+build
 ``` bash
 docker buildx build -t ghcr.io/cybrid-systems/dev . --load
 ```
 
-
-ubuntu24.04
+deploy
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
     -t ghcr.io/cybrid-systems/dev \
