@@ -3,12 +3,14 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
-ln -s /usr/bin/python3 /usr/bin/python
-apt install -y python3-pip pipx python3-venv
+apt update
+apt install -y \
+    python3-pip \
+    python3-venv \
+    python3-full \
+    pipx
 
-# Create and activate venv
-python -m venv /opt/venv
-source /opt/venv/bin/activate
+pipx ensurepath
 
-pip install --upgrade argcomplete
-pip install black pyflakes isort pipenv nose pytest cmake-language-server compiledb
+# doom doctor
+pipx install isort pipenv nose pytest black pyflakes
