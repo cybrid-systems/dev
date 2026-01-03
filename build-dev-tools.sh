@@ -25,12 +25,17 @@ cp ninja /usr/local/bin
 # zsh
 sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
+echo 'export PATH="$HOME/.cargo/bin:$HOME/.config/emacs/bin:$PATH:/root/.local/bin"
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+export TERM=xterm-256color' >>~/.zshrc
+
 # tmux
 cd && git clone https://github.com/gpakosz/.tmux.git
 ln -s -f .tmux/.tmux.conf
 cp .tmux/.tmux.conf.local .
 # config tmux
-cat >> .tmux.conf.local << 'EOF'
+cat >>.tmux.conf.local <<'EOF'
 set -g history-limit 100000
 set -g status-keys vi
 set -g mode-keys vi
@@ -41,6 +46,7 @@ bind-key -T copy-mode-vi 'v' send -X begin-selection
 bind-key -T copy-mode-vi 'y' send -X copy-selection-and-cancel
 set -g prefix M-o
 bind M-o send-prefix
+set -g default-command "zsh"
 EOF
 
 # clear

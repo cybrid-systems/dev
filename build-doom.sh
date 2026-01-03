@@ -26,6 +26,5 @@ emacs --batch --eval "
 # doom doctor
 apt install -y markdown shellcheck ispell
 
-echo 'export PATH="$HOME/.config/emacs/bin:$PATH"' >> ~/.zshrc
 # clear
 cd && rm ./*.el -rf

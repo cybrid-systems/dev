@@ -9,6 +9,10 @@ RUN /root/build-gcc.sh
 COPY build-dev-tools.sh /root/build-dev-tools.sh
 RUN /root/build-dev-tools.sh
 
+# llvm
+COPY build-llvm.sh /root/build-llvm.sh
+RUN /root/build-llvm.sh
+
 # emacs
 COPY build-emacs.sh /root/build-emacs.sh
 RUN /root/build-emacs.sh
@@ -25,18 +29,10 @@ RUN /root/build-python.sh
 COPY build-rust.sh /root/build-rust.sh
 RUN /root/build-rust.sh
 
-# llvm
-COPY build-llvm.sh /root/build-llvm.sh
-RUN /root/build-llvm.sh
-
 # doom eamcs
 COPY *.el /root/
 COPY build-doom.sh /root/build-doom.sh
 RUN /root/build-doom.sh
-
-# fixit
-COPY build-fixit.sh /root/build-fixit.sh
-RUN /root/build-fixit.sh
 
 # clear
 RUN cd && rm *.sh

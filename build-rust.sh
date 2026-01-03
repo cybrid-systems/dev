@@ -20,7 +20,5 @@ git clone https://github.com/BurntSushi/ripgrep && cd ripgrep || exit
 $CARGO_BIN build --release --features 'pcre2'
 cp target/release/rg ~/.cargo/bin/rg
 
-echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.zshrc
-
 # clear
 cd && rm rust-analyzer ripgrep -rf
