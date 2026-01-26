@@ -34,5 +34,9 @@ COPY *.el /root/
 COPY build-doom.sh /root/build-doom.sh
 RUN /root/build-doom.sh
 
+# racket
+COPY build-racket.sh /root/build-racket.sh
+RUN /root/build-racket.sh
+
 # clear
 RUN cd && rm *.sh
