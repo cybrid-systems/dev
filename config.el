@@ -156,5 +156,8 @@
 (setq-default truncate-lines nil)
 
 (setq treesit-language-source-alist
-            '((c . ("https://github.com/tree-sitter/tree-sitter-c" "v0.20.7"))
-                      (cpp . ("https://github.com/tree-sitter/tree-sitter-cpp" "v0.23.4"))))
+      '((c . ("https://github.com/tree-sitter/tree-sitter-c" "v0.20.7"))
+        (cpp . ("https://github.com/tree-sitter/tree-sitter-cpp" "v0.23.4"))))
+
+(after! lsp-racket
+  (setq lsp-racket-langserver-command '("xvfb-run" "racket" "--lib" "racket-langserver")))
