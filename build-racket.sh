@@ -5,7 +5,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 VERSION=9.0
 
-apt install xvfb
+apt install xvfb -y
 
 cd && wget https://github.com/racket/racket/archive/refs/tags/v$VERSION.tar.gz
 tar zxvf v$VERSION.tar.gz
