@@ -10,8 +10,8 @@ docker buildx create --use
 
 build
 ``` bash
-docker buildx build -t ghcr.io/cybrid-systems/dev . --load
-docker buildx build --platform linux/amd64 -t ghcr.io/cybrid-systems/dev . --load
+docker buildx build --platform linux/arm64 -t ghcr.io/cybrid-systems/dev:arm64 . --load
+docker buildx build --platform linux/amd64 -t ghcr.io/cybrid-systems/dev:amd64 . --load
 ```
 
 deploy both, build-racket not work.
