@@ -5,7 +5,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 VERSION=9.0
 
-apt install xvfb libcairo2 -y
+apt install -y xvfb libcairo2  libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0
 
 cd && wget https://github.com/racket/racket/archive/refs/tags/v$VERSION.tar.gz
 tar zxvf v$VERSION.tar.gz
