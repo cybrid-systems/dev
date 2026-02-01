@@ -14,11 +14,48 @@ docker buildx build -t ghcr.io/cybrid-systems/dev . --load
 docker buildx build --platform linux/amd64 -t ghcr.io/cybrid-systems/dev . --load
 ```
 
-deploy
+deploy both, build-racket not work.
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
     -t ghcr.io/cybrid-systems/dev \
     . --push
+```
+
+deploy arm64
+
+``` bash
+docker buildx build \
+  --platform linux/arm64 \
+  -t ghcr.io/cybrid-systems/dev:arm64 \
+  --push .
+```
+
+deploy amd64
+
+``` bash
+docker buildx build \
+  --platform linux/amd64 \
+  -t ghcr.io/cybrid-systems/dev:amd64 \
+  --push .
+```
+
+deploy merge
+
+``` bash
+docker buildx imagetools create \
+  ghcr.io/cybrid-systems/dev:amd64 \
+  ghcr.io/cybrid-systems/dev:arm64 \
+  -t ghcr.io/cybrid-systems/dev:latest
+```
+
+inspect
+``` bash
+docker buildx imagetools inspect ghcr.io/cybrid-systems/dev:latest
+```
+
+or
+``` bash
+docker manifest inspect ghcr.io/cybrid-systems/dev:latest
 ```
 
 ## test
