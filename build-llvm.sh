@@ -2,7 +2,7 @@
 set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
-LLVM_VERSION=21.1.8
+LLVM_VERSION=22.1.0
 LLVM_TAR=llvm-project-$LLVM_VERSION.src.tar.xz
 LLVM_DIR=llvm-project-$LLVM_VERSION.src
 
