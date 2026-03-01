@@ -27,7 +27,7 @@ cmake -G Ninja \
     -DLLVM_ENABLE_ASSERTIONS=OFF \
     ../llvm
 
-ninja -j10
+ninja -j12
 ninja install
 
 # 清理
