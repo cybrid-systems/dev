@@ -16,7 +16,7 @@ mkdir build && cd build
     --enable-languages=c,c++ \
     --disable-multilib \
     --disable-bootstrap
-make -j10 && make install
+make -j14 && make install
 
 # set default gcc 14.2.0 /usr/local/bin/gcc
 update-alternatives --install /usr/bin/gcc gcc /usr/local/bin/gcc 60 --slave /usr/bin/g++ g++ /usr/local/bin/g++
