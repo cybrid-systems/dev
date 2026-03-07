@@ -5,8 +5,13 @@ export DEBIAN_FRONTEND=noninteractive
 VERSION=9.1
 
 apt-get update -qq
-apt install -y xvfb libcairo2 libpango-1.0-0 libpangocairo-1.0-0 \
-    libgdk-pixbuf2.0-0 libgtk2.0-0 libgdk-pixbuf2.0-0 libx11-6 libcanberra-gtk-module
+apt-get install -y xvfb \
+    libgtk2.0-0 \
+    libglib2.0-0 \
+    libcairo2 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf2.0-0
 
 # === 自动检测 Docker --platform ===
 case "$(uname -m)" in
