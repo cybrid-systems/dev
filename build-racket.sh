@@ -1,17 +1,44 @@
 #!/bin/bash
-
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 VERSION=9.1
 
-apt install -y xvfb libcairo2  libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libgtk2.0-0 libgdk-pixbuf2.0-0 libx11-6 libcanberra-gtk-module
+apt-get update -qq
+apt install -y xvfb libcairo2 libpango-1.0-0 libpangocairo-1.0-0 \
+    libgdk-pixbuf2.0-0 libgtk2.0-0 libgdk-pixbuf2.0-0 libx11-6 libcanberra-gtk-module
 
-cd && wget https://github.com/racket/racket/archive/refs/tags/v$VERSION.tar.gz
-tar zxvf v$VERSION.tar.gz
-cd racket-$VERSION
-make unix-style PREFIX=/usr/local JOBS=14
-raco pkg install --auto fmt
-raco pkg install --auto racket-langserver
+# === 自动检测 Docker --platform ===
+case "$(uname -m)" in
+x86_64 | amd64)
+    RACKET_ARCH="x86_64"
+    ;;
+aarch64 | arm64)
+    RACKET_ARCH="aarch64"
+    ;;
+*)
+    echo "❌ 不支持的架构: $(uname -m)"
+    exit 1
+    ;;
+esac
 
-rm -rf v$VERSION.tar.gz racket-$VERSION
+echo "=== 正在安装 Racket ${VERSION} (${RACKET_ARCH}) ==="
+
+cd /tmp
+INSTALLER="racket-${VERSION}-${RACKET_ARCH}-linux-buster-cs.sh"
+
+wget --progress=bar:force "https://download.racket-lang.org/installers/${VERSION}/${INSTALLER}" -O racket-installer.sh
+chmod +x racket-installer.sh
+
+cat <<EOF | ./racket-installer.sh
+yes
+/usr/local
+EOF
+
+rm -f racket-installer.sh
+
+# === 安装你需要的包 ===
+echo "=== 安装 fmt 和 racket-langserver ==="
+raco pkg install --auto --skip-installed fmt racket-langserver
+
+echo "✅ Racket 9.1 安装完成！"
