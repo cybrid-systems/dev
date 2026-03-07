@@ -10,8 +10,8 @@ COPY build-dev-tools.sh /root/build-dev-tools.sh
 RUN /root/build-dev-tools.sh
 
 # llvm
-COPY build-llvm.sh /root/build-llvm.sh
-RUN /root/build-llvm.sh
+COPY install-llvm.sh /root/install-llvm.sh
+RUN /root/install-llvm.sh
 
 # emacs
 COPY build-emacs.sh /root/build-emacs.sh
