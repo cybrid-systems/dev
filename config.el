@@ -160,4 +160,8 @@
         (cpp . ("https://github.com/tree-sitter/tree-sitter-cpp" "v0.23.4"))))
 
 (after! lsp-racket
-  (setq lsp-racket-langserver-command '("xvfb-run" "racket" "--lib" "racket-langserver")))
+  (setq lsp-racket-langserver-command
+        '("xvfb-run" "-a" "racket" "--lib" "racket-langserver")))
+
+(add-hook 'c-mode-hook
+          (lambda () (setq-local comment-start "// " comment-end "")))
