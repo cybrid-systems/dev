@@ -7,28 +7,33 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LC_ALL=en_US.UTF-8 \
     GCC_VERSION=${GCC_VERSION}
 
-# === 后面所有 build 脚本（顺序优化：基础→工具链→语言→Emacs）===
-COPY build.sh /tmp/ && /tmp/build.sh && rm /tmp/build.sh
+COPY build.sh /tmp/
+RUN /tmp/build.sh && rm -f /tmp/build.sh
 
-COPY build-dev-tools.sh /tmp/ && /tmp/build-dev-tools.sh && rm /tmp/build-dev-tools.sh
+COPY build-dev-tools.sh /tmp/
+RUN /tmp/build-dev-tools.sh && rm -f /tmp/build-dev-tools.sh
 
-# 新增/调整的 GCC + LLVM 脚本
-COPY install-llvm.sh /tmp/ && /tmp/install-llvm.sh && rm /tmp/install-llvm.sh
+COPY install-llvm.sh /tmp/
+RUN /tmp/install-llvm.sh && rm -f /tmp/install-llvm.sh
 
-COPY build-emacs.sh /tmp/ && /tmp/build-emacs.sh && rm /tmp/build-emacs.sh
+COPY build-emacs.sh /tmp/
+RUN /tmp/build-emacs.sh && rm -f /tmp/build-emacs.sh
 
-COPY build-nodejs.sh /tmp/ && /tmp/build-nodejs.sh && rm /tmp/build-nodejs.sh
+COPY build-nodejs.sh /tmp/
+RUN /tmp/build-nodejs.sh && rm -f /tmp/build-nodejs.sh
 
-COPY build-python.sh /tmp/ && /tmp/build-python.sh && rm /tmp/build-python.sh
+COPY build-python.sh /tmp/
+RUN /tmp/build-python.sh && rm -f /tmp/build-python.sh
 
-COPY build-rust.sh /tmp/ && /tmp/build-rust.sh && rm /tmp/build-rust.sh
+COPY build-rust.sh /tmp/
+RUN /tmp/build-rust.sh && rm -f /tmp/build-rust.sh
 
-# Doom Emacs 配置
+# Doom 部分（它原来就是单独的 RUN，可以保留或改成一致风格）
 COPY *.el build-doom.sh /tmp/
 RUN /tmp/build-doom.sh && rm -rf /tmp/*
 
-# Racket（保留，但 README 注失效）
-COPY build-racket.sh /tmp/ && /tmp/build-racket.sh && rm /tmp/build-racket.sh
+COPY build-racket.sh /tmp/
+RUN /tmp/build-racket.sh && rm -f /tmp/build-racket.sh
 
 # === 创建固定 dev 用户（构建时写死 1000）===
 RUN groupadd --gid 1000 dev \
