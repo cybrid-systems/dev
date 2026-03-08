@@ -12,7 +12,7 @@ apt-get update && apt-get install -y --no-install-recommends \
     python3-dev net-tools bc bear libelf-dev pandoc tree \
     libxpm-dev libjpeg-dev libpng-dev libgif-dev libtiff-dev \
     libgnutls28-dev pkg-config fontconfig libjansson-dev \
-    fonts-emojione shfmt \
+    fonts-emojione shfmt markdown shellcheck ispell \
     glslang-tools texinfo libtree-sitter-dev libncurses-dev \
     python3-pip python3-venv python3-full pipx \
     ripgrep fd-find libtool sudo gosu &&
@@ -33,6 +33,3 @@ locale-gen en_US.UTF-8
 echo "LANG=en_US.UTF-8" >>/etc/default/locale
 ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 dpkg-reconfigure --frontend noninteractive tzdata
-
-# git
-git config --global merge.conflictstyle diff3

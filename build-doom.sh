@@ -22,9 +22,3 @@ emacs --batch --eval "
           (c   \"https://github.com/tree-sitter/tree-sitter-c\")))
   (dolist (lang '(c cpp))
     (treesit-install-language-grammar lang)))"
-
-# doom doctor
-apt install -y markdown shellcheck ispell
-
-# clear
-cd && rm ./*.el -rf
