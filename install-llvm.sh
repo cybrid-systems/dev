@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # 1. 架构检测与变量设置
 ARCH=$(uname -m)
