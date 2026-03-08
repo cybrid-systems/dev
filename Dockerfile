@@ -1,39 +1,50 @@
 FROM ubuntu:24.04
-ENV GCC_VERSION=15
-COPY build.sh /root/build.sh
-RUN /root/build.sh
 
-COPY build-dev-tools.sh /root/build-dev-tools.sh
-RUN /root/build-dev-tools.sh
+ARG GCC_VERSION=15
 
-# llvm
-COPY install-llvm.sh /root/install-llvm.sh
-RUN /root/install-llvm.sh
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8 \
+    GCC_VERSION=${GCC_VERSION}
 
-# emacs
-COPY build-emacs.sh /root/build-emacs.sh
-RUN /root/build-emacs.sh
+# === 后面所有 build 脚本（顺序优化：基础→工具链→语言→Emacs）===
+COPY build.sh /tmp/ && /tmp/build.sh && rm /tmp/build.sh
 
-# nodejs
-COPY build-nodejs.sh /root/build-nodejs.sh
-RUN /root/build-nodejs.sh
+COPY build-dev-tools.sh /tmp/ && /tmp/build-dev-tools.sh && rm /tmp/build-dev-tools.sh
 
-# python
-COPY build-python.sh /root/build-python.sh
-RUN /root/build-python.sh
+# 新增/调整的 GCC + LLVM 脚本
+COPY build-llvm.sh /tmp/ && /tmp/build-llvm.sh && rm /tmp/build-llvm.sh
+COPY install-llvm.sh /tmp/ && /tmp/install-llvm.sh && rm /tmp/install-llvm.sh
 
-# rust
-COPY build-rust.sh /root/build-rust.sh
-RUN /root/build-rust.sh
+COPY build-emacs.sh /tmp/ && /tmp/build-emacs.sh && rm /tmp/build-emacs.sh
 
-# doom eamcs
-COPY *.el /root/
-COPY build-doom.sh /root/build-doom.sh
-RUN /root/build-doom.sh
+COPY build-nodejs.sh /tmp/ && /tmp/build-nodejs.sh && rm /tmp/build-nodejs.sh
 
-# racket
-COPY build-racket.sh /root/build-racket.sh
-RUN /root/build-racket.sh
+COPY build-python.sh /tmp/ && /tmp/build-python.sh && rm /tmp/build-python.sh
 
-# clear
-RUN cd && rm *.sh
+COPY build-rust.sh /tmp/ && /tmp/build-rust.sh && rm /tmp/build-rust.sh
+
+# Doom Emacs 配置
+COPY *.el build-doom.sh /tmp/
+RUN /tmp/build-doom.sh && rm -rf /tmp/*
+
+# Racket（保留，但 README 注失效）
+COPY build-racket.sh /tmp/ && /tmp/build-racket.sh && rm /tmp/build-racket.sh
+
+# === 创建固定 dev 用户（构建时写死 1000）===
+RUN groupadd --gid 1000 dev \
+    && useradd --uid 1000 --gid 1000 -m -s /bin/zsh -G sudo dev \
+    && echo "dev ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/dev \
+    && mkdir -p /home/dev/code /home/dev/.cache/ccache \
+    && chown -R dev:dev /home/dev
+
+# 复制 entrypoint
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# 最终清理
+RUN rm -rf /root/*.sh /tmp/* /var/tmp/*
+
+# 使用 entrypoint（关键！）
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/bin/zsh"]

@@ -61,13 +61,19 @@ docker manifest inspect ghcr.io/cybrid-systems/dev:latest
 ## test
 
 ```bash
-docker run -it --rm -v `pwd`/..:/root/code -w /root/code ghcr.io/cybrid-systems/dev /bin/zsh
+docker run -it --rm -v `pwd`/..:/home/dev/code -w /home/dev/code ghcr.io/cybrid-systems/dev /bin/zsh
 ```
 
 ## run
 
 ```bash
-docker run --privileged -d -it --name angel -v `pwd`:/root/code -w /root/code ghcr.io/cybrid-systems/dev
+docker run -d -it --name angel \
+  --cap-add=SYS_PTRACE \
+  -e USER_UID=$(id -u) \
+  -e USER_GID=$(id -g) \
+  -v $(pwd):/home/dev/code \
+  -w /home/dev/code \
+  ghcr.io/cybrid-systems/dev:latest
 docker exec -it --detach-keys="ctrl-z,z" angel /bin/zsh
 git config --global user.name $your_name
 git config --global user.email $your_email
