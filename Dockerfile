@@ -34,12 +34,17 @@ RUN /tmp/install-doom.sh && rm -rf /tmp/*
 COPY install-racket.sh /tmp/
 RUN /tmp/install-racket.sh && rm -f /tmp/install-racket.sh
 
-# === 创建固定 dev 用户（构建时写死 1000）===
-RUN groupadd --gid 1000 dev \
-    && useradd --uid 1000 --gid 1000 -m -s /bin/zsh -G sudo dev \
-    && echo "dev ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/dev \
-    && mkdir -p /home/dev/code /home/dev/.cache/ccache \
-    && chown -R dev:dev /home/dev
+# === Create non-root dev user (idempotent: skip if already exists) ===
+RUN if ! getent group 1000 >/dev/null; then \
+        groupadd --gid 1000 dev; \
+    fi && \
+    if ! getent passwd 1000 >/dev/null; then \
+        useradd --uid 1000 --gid 1000 -m -s /bin/zsh -G sudo dev; \
+    fi && \
+    echo "dev ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/dev-nopasswd && \
+    chmod 0440 /etc/sudoers.d/dev-nopasswd && \
+    mkdir -p /home/dev/code /home/dev/.cache/ccache && \
+    chown -R 1000:1000 /home/dev
 
 # 复制 entrypoint
 COPY entrypoint.sh /usr/local/bin/
