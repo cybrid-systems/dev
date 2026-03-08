@@ -12,7 +12,7 @@ apt-get update && apt-get install -y --no-install-recommends \
     python3-dev net-tools bc bear libelf-dev pandoc tree \
     libxpm-dev libjpeg-dev libpng-dev libgif-dev libtiff-dev \
     libgnutls28-dev pkg-config fontconfig libjansson-dev \
-    libgccjit-${GCC_VERSION}-dev fonts-emojione shfmt \
+    fonts-emojione shfmt \
     glslang-tools texinfo libtree-sitter-dev libncurses-dev \
     python3-pip python3-venv python3-full pipx \
     ripgrep fd-find libtool sudo gosu &&
@@ -20,7 +20,7 @@ apt-get update && apt-get install -y --no-install-recommends \
 
 add-apt-repository ppa:ubuntu-toolchain-r/test -y &&
     apt-get update &&
-    apt-get install -y gcc-$$ {GCC_VERSION} g++- $${GCC_VERSION} &&
+    apt-get install -y gcc-$$ {GCC_VERSION} g++- $${GCC_VERSION} && libgccjit-${GCC_VERSION}-dev &&
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 \
         --slave /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} &&
     update-alternatives --set gcc /usr/bin/gcc-${GCC_VERSION} &&
