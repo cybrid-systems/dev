@@ -33,7 +33,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "正在解压并安装到 ${INSTALL_DIR}..."
-sudo tar -xJf "/tmp/$FILENAME" -C "$INSTALL_DIR" --strip-components=1
+tar -xJf "/tmp/$FILENAME" -C "$INSTALL_DIR" --strip-components=1
 rm "/tmp/$FILENAME"
 
 # 3. 核心修复：修复 lldb 的 Python 依赖
@@ -46,16 +46,16 @@ if [ ! -f "$LIB_PATH/$TARGET_PYTHON" ]; then
 
     if [ -n "$EXISTING_PY" ]; then
         echo "发现可用库: $EXISTING_PY"
-        sudo ln -sf "$EXISTING_PY" "$LIB_PATH/$TARGET_PYTHON"
+        ln -sf "$EXISTING_PY" "$LIB_PATH/$TARGET_PYTHON"
         echo "软链接创建成功: $TARGET_PYTHON -> $EXISTING_PY"
     else
         echo "警告: 未在系统中发现任何 libpython3.x.so.1.0，lldb 可能无法运行。"
-        echo "建议执行: sudo apt install -y python3-dev"
+        echo "建议执行: apt install -y python3-dev"
     fi
 fi
 
 # 4. 刷新缓存与验证
-sudo ldconfig
+ldconfig
 echo "---------------------------------------"
 if command -v clang >/dev/null; then
     echo "LLVM 22.1.0 安装完成！"
