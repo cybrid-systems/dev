@@ -2,14 +2,14 @@
 
 set -euo pipefail
 
-GCC_VERSION=14
+GCC_VERSION=${GCC_VERSION:-15}
 export DEBIAN_FRONTEND=noninteractive
 
 # base
 apt update
 apt install -y build-essential apt-utils git zsh vim tmux curl wget libssl-dev ack-grep rsync ccache software-properties-common python3-dev net-tools bc bear libelf-dev pandoc tree
 
-# gcc-14
+# gcc
 add-apt-repository -y ppa:ubuntu-toolchain-r/test
 apt update
 apt -y install gcc-$GCC_VERSION g++-$GCC_VERSION

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 VERSION=30.2
-GCC_VERSION=${GCC_VERSION:-14}
+GCC_VERSION=${GCC_VERSION:-15}
 
 apt install -y libxpm-dev libjpeg-dev libpng-dev libgif-dev libtiff-dev libgnutls28-dev pkg-config fontconfig libjansson-dev libgccjit-$GCC_VERSION-dev fonts-emojione shfmt glslang-tools texinfo libtree-sitter-dev libncurses-dev
 
