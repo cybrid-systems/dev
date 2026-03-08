@@ -5,6 +5,13 @@ set -euo pipefail
 GCC_VERSION=${GCC_VERSION:-15}
 export DEBIAN_FRONTEND=noninteractive
 
+apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    wget \
+    git &&
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
 # === Phase 1: 系统依赖 + gosu（动态切换用户神器）===
 apt-get update && apt-get install -y --no-install-recommends \
     build-essential apt-utils zsh vim tmux \
