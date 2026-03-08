@@ -27,7 +27,7 @@ apt-get update && apt-get install -y --no-install-recommends \
 
 add-apt-repository ppa:ubuntu-toolchain-r/test -y &&
     apt-get update &&
-    apt-get install -y gcc-$$ {GCC_VERSION} g++- $${GCC_VERSION} && libgccjit-${GCC_VERSION}-dev &&
+    apt-get install -y gcc-${GCC_VERSION} g++-${GCC_VERSION} && libgccjit-${GCC_VERSION}-dev &&
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 \
         --slave /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} &&
     update-alternatives --set gcc /usr/bin/gcc-${GCC_VERSION} &&
