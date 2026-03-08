@@ -14,7 +14,7 @@ docker buildx build --platform linux/arm64 -t ghcr.io/cybrid-systems/dev:arm64 .
 docker buildx build --platform linux/amd64 -t ghcr.io/cybrid-systems/dev:amd64 . --load
 ```
 
-deploy both, build-racket not work.
+deploy both
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
     -t ghcr.io/cybrid-systems/dev \
