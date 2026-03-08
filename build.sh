@@ -7,7 +7,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 # === Phase 1: 系统依赖 + gosu（动态切换用户神器）===
 apt-get update && apt-get install -y --no-install-recommends \
-    build-essential apt-utils git zsh vim tmux curl wget \
+    build-essential apt-utils zsh vim tmux \
     libssl-dev ack-grep rsync ccache software-properties-common \
     python3-dev net-tools bc bear libelf-dev pandoc tree \
     libxpm-dev libjpeg-dev libpng-dev libgif-dev libtiff-dev \

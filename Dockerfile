@@ -7,6 +7,13 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LC_ALL=en_US.UTF-8 \
     GCC_VERSION=${GCC_VERSION}
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
 COPY build.sh /tmp/
 RUN /tmp/build.sh && rm -f /tmp/build.sh
 
