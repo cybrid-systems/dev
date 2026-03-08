@@ -13,7 +13,6 @@ COPY build.sh /tmp/ && /tmp/build.sh && rm /tmp/build.sh
 COPY build-dev-tools.sh /tmp/ && /tmp/build-dev-tools.sh && rm /tmp/build-dev-tools.sh
 
 # 新增/调整的 GCC + LLVM 脚本
-COPY build-llvm.sh /tmp/ && /tmp/build-llvm.sh && rm /tmp/build-llvm.sh
 COPY install-llvm.sh /tmp/ && /tmp/install-llvm.sh && rm /tmp/install-llvm.sh
 
 COPY build-emacs.sh /tmp/ && /tmp/build-emacs.sh && rm /tmp/build-emacs.sh
