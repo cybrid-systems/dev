@@ -19,21 +19,20 @@ RUN /tmp/install-llvm.sh && rm -f /tmp/install-llvm.sh
 COPY build-emacs.sh /tmp/
 RUN /tmp/build-emacs.sh && rm -f /tmp/build-emacs.sh
 
-COPY build-nodejs.sh /tmp/
-RUN /tmp/build-nodejs.sh && rm -f /tmp/build-nodejs.sh
+COPY install-nodejs.sh /tmp/
+RUN /tmp/install-nodejs.sh && rm -f /tmp/install-nodejs.sh
 
-COPY build-python.sh /tmp/
-RUN /tmp/build-python.sh && rm -f /tmp/build-python.sh
+COPY install-python.sh /tmp/
+RUN /tmp/install-python.sh && rm -f /tmp/install-python.sh
 
-COPY build-rust.sh /tmp/
-RUN /tmp/build-rust.sh && rm -f /tmp/build-rust.sh
+COPY install-rust.sh /tmp/
+RUN /tmp/install-rust.sh && rm -f /tmp/install-rust.sh
 
-# Doom 部分（它原来就是单独的 RUN，可以保留或改成一致风格）
-COPY *.el build-doom.sh /tmp/
-RUN /tmp/build-doom.sh && rm -rf /tmp/*
+COPY *.el install-doom.sh /tmp/
+RUN /tmp/install-doom.sh && rm -rf /tmp/*
 
-COPY build-racket.sh /tmp/
-RUN /tmp/build-racket.sh && rm -f /tmp/build-racket.sh
+COPY install-racket.sh /tmp/
+RUN /tmp/install-racket.sh && rm -f /tmp/install-racket.sh
 
 # === 创建固定 dev 用户（构建时写死 1000）===
 RUN groupadd --gid 1000 dev \
