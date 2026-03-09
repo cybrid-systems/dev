@@ -25,13 +25,34 @@ apt-get update && apt-get install -y --no-install-recommends \
     ripgrep fd-find libtool sudo gosu &&
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# GCC 安装：架构自适应
+ARCH=$(dpkg --print-architecture) # 或 uname -m | grep -q aarch64 && echo arm64
+
+echo "Detected architecture: $ARCH"
+
+if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+    echo "arm64 detected: fallback to GCC 14 (gcc-15 not reliably available in PPA)"
+    GCC_VERSION=14
+else
+    echo "amd64/x86_64: trying GCC ${GCC_VERSION}"
+fi
+
 add-apt-repository ppa:ubuntu-toolchain-r/test -y &&
     apt-get update &&
-    apt-get install -y gcc-${GCC_VERSION} g++-${GCC_VERSION} && libgccjit-${GCC_VERSION}-dev &&
+    apt-get install -y gcc-${GCC_VERSION} g++-${GCC_VERSION} &&
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 \
         --slave /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} &&
     update-alternatives --set gcc /usr/bin/gcc-${GCC_VERSION} &&
     rm -rf /var/lib/apt/lists/*
+
+if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+    if [ -f "/tmp/build-gcc.sh" ]; then
+        echo "Falling back to build-gcc.sh for potential custom GCC build"
+        bash /tmp/build-gcc.sh || echo "build-gcc.sh failed, continuing with system fallback"
+    fi
+fi
+GCC_VERSION=15
+apt-get install -y libgccjit-${GCC_VERSION}-dev
 
 # locale
 apt update

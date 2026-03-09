@@ -8,7 +8,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     GCC_VERSION=${GCC_VERSION}
 
 COPY build.sh /tmp/
-RUN /tmp/build.sh && rm -f /tmp/build.sh
+COPY build-gcc.sh /tmp/
+RUN /tmp/build.sh && rm -f /tmp/build.sh && rm -f /tmp/build-gcc.sh
 
 COPY build-dev-tools.sh /tmp/
 RUN /tmp/build-dev-tools.sh && rm -f /tmp/build-dev-tools.sh
