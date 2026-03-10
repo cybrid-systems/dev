@@ -38,7 +38,8 @@ apt-get install -y --no-install-recommends \
     markdown shellcheck ispell ripgrep fd-find libtool \
     xvfb libgtk2.0-0 libglib2.0-0 libcairo2 libpango-1.0-0 \
     libpangocairo-1.0-0 libgdk-pixbuf2.0-0 \
-    texinfo flex bison libgmp3-dev libmpfr-dev libmpc-dev
+    texinfo flex bison libgmp3-dev libmpfr-dev libmpc-dev \
+    locales tzdata
 
 # Locale + 时区
 locale-gen en_US.UTF-8
