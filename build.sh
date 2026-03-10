@@ -29,20 +29,16 @@ update-alternatives --set gcc /usr/bin/gcc-${GCC_VERSION}
 apt-get install -y --no-install-recommends \
     build-essential apt-utils sudo gosu htop iotop tree \
     vim tmux zsh ack-grep pandoc bear net-tools bc libelf-dev libncurses-dev \
-    libssl-dev libxml2-dev libedit-dev libz-dev
-# Emacs build deps（含 libgccjit 已可用）
-libxpm-dev libjpeg-dev libpng-dev libgif-dev libtiff-dev \
+    libssl-dev libxml2-dev libedit-dev libz-dev \
+    libxpm-dev libjpeg-dev libpng-dev libgif-dev libtiff-dev \
     libgnutls28-dev pkg-config fontconfig libjansson-dev \
-    libgccjit-${GCC_VERSION}-dev fonts-noto-color-emoji shfmt glslang-tools \
-    libtree-sitter-dev libx11-dev libxt-dev libxaw7-dev libxmu-dev
-# Python + Doom + 其他
-python3-dev python3-pip python3-venv python3-full pipx \
-    markdown shellcheck ispell ripgrep fd-find libtool
-# Racket GUI deps
-xvfb libgtk2.0-0 libglib2.0-0 libcairo2 libpango-1.0-0 \
-    libpangocairo-1.0-0 libgdk-pixbuf2.0-0
-# GCC build deps（备用）
-texinfo flex bison libgmp3-dev libmpfr-dev libmpc-dev
+    fonts-noto-color-emoji shfmt glslang-tools \
+    libtree-sitter-dev libx11-dev libxt-dev libxaw7-dev libxmu-dev \
+    python3-dev python3-pip python3-venv python3-full pipx \
+    markdown shellcheck ispell ripgrep fd-find libtool \
+    xvfb libgtk2.0-0 libglib2.0-0 libcairo2 libpango-1.0-0 \
+    libpangocairo-1.0-0 libgdk-pixbuf2.0-0 \
+    texinfo flex bison libgmp3-dev libmpfr-dev libmpc-dev
 
 # Locale + 时区
 locale-gen en_US.UTF-8
