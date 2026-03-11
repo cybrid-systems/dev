@@ -9,11 +9,21 @@ ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-# 早早创建 dev 用户 + sudo 免密
-RUN groupadd --gid ${USER_GID} ${USERNAME} && \
-    useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/zsh ${USERNAME} && \
-    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} && \
-    chmod 0440 /etc/sudoers.d/${USERNAME}
+# 早早创建 dev 用户 + sudo 免密 (idempotent version)
+RUN EXISTING_GROUP=$(getent group 1000 | cut -d: -f1 || true) && \
+    if [ -n "${EXISTING_GROUP}" ] && [ "${EXISTING_GROUP}" != "dev" ]; then \
+        groupmod -n dev ${EXISTING_GROUP}; \
+    elif ! getent group 1000 >/dev/null; then \
+        groupadd --gid 1000 dev; \
+    fi && \
+    EXISTING_USER=$(getent passwd 1000 | cut -d: -f1 || true) && \
+    if [ -n "${EXISTING_USER}" ] && [ "${EXISTING_USER}" != "dev" ]; then \
+        usermod -l dev -d /home/dev -m ${EXISTING_USER}; \
+    elif ! getent passwd 1000 >/dev/null; then \
+        useradd --uid 1000 --gid 1000 -m -s /bin/zsh -G sudo dev; \
+    fi && \
+    echo "dev ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/dev && \
+    chmod 0440 /etc/sudoers.d/dev
 
 # 切换到 dev 用户，所有后续 RUN 默认非 root
 USER ${USERNAME}
