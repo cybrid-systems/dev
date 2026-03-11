@@ -16,5 +16,3 @@ $DOOM_BIN sync
 # install tree-sitter
 emacs --batch --eval "
 (progn (setq treesit-language-source-alist '((cpp \"https://github.com/tree-sitter/tree-sitter-cpp\") (c \"https://github.com/tree-sitter/tree-sitter-c\"))) (dolist (lang '(c cpp)) (treesit-install-language-grammar lang)))"
-# clear
-cd && rm ./*.el -rf
