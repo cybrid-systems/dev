@@ -20,6 +20,9 @@ apt-get install -y --no-install-recommends \
     gcc-${GCC_VERSION} g++-${GCC_VERSION} \
     libgccjit-${GCC_VERSION}-dev
 
+# 先移除旧的 alternatives（修复 broken group）
+update-alternatives --remove-all gcc || true # 忽略错误，如果不存在
+
 # 设置默认 gcc
 update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 \
     --slave /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION}
