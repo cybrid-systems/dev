@@ -23,8 +23,5 @@ emacs --batch --eval "
   (dolist (lang '(c cpp))
     (treesit-install-language-grammar lang)))"
 
-# doom doctor
-apt install -y markdown shellcheck ispell
-
 # clear
 cd && rm ./*.el -rf

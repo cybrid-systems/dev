@@ -25,9 +25,11 @@ RUN /root/install-llvm.sh
 
 # ==================== Stage 5: Emacs Stack (编译 Emacs + Doom) ====================
 FROM llvm AS emacs
-COPY install-emacs-stack.sh /root/
+COPY build-emacs.sh /root/
+RUN /root/build-emacs.sh
 COPY *.el /root/
-RUN /root/install-emacs-stack.sh
+COPY build-doom.sh /root/
+RUN /root/build-doom.sh
 
 # ==================== Stage 6: Final（非 root + entrypoint）===================
 FROM emacs AS final
