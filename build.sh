@@ -7,28 +7,11 @@ export TZ=Asia/Shanghai
 
 echo "=== 开始安装所有系统依赖 ==="
 
-# 第一阶段：基础工具 + 添加 PPA（关键修复）
 apt-get update -qq
 apt-get install -y --no-install-recommends \
     software-properties-common curl wget git
+date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)Z" || true
 
-add-apt-repository -y ppa:ubuntu-toolchain-r/test
-apt-get update -qq
-
-# 第二阶段：先安装 GCC 15 + libgccjit（必须在 PPA 之后）
-apt-get install -y --no-install-recommends \
-    gcc-${GCC_VERSION} g++-${GCC_VERSION} \
-    libgccjit-${GCC_VERSION}-dev
-
-# 先移除旧的 alternatives（修复 broken group）
-update-alternatives --remove-all gcc || true # 忽略错误，如果不存在
-
-# 设置默认 gcc
-update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 \
-    --slave /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION}
-update-alternatives --set gcc /usr/bin/gcc-${GCC_VERSION}
-
-# 第三阶段：安装所有其他依赖（现在 PPA 已可用）
 apt-get install -y --no-install-recommends \
     build-essential apt-utils sudo gosu htop iotop tree \
     vim tmux zsh ack-grep pandoc bear net-tools bc libelf-dev libncurses-dev \
@@ -44,7 +27,19 @@ apt-get install -y --no-install-recommends \
     texinfo flex bison libgmp3-dev libmpfr-dev libmpc-dev \
     locales tzdata
 
-# Locale + 时区
+add-apt-repository -y ppa:ubuntu-toolchain-r/test
+apt-get update -qq
+
+apt-get install -y --no-install-recommends \
+    gcc-${GCC_VERSION} g++-${GCC_VERSION} \
+    libgccjit-${GCC_VERSION}-dev
+
+update-alternatives --remove-all gcc || true
+
+update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 \
+    --slave /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION}
+update-alternatives --set gcc /usr/bin/gcc-${GCC_VERSION}
+
 locale-gen en_US.UTF-8
 echo "LANG=en_US.UTF-8" >/etc/default/locale
 ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
@@ -52,6 +47,5 @@ dpkg-reconfigure --frontend noninteractive tzdata
 
 git config --global merge.conflictstyle diff3
 
-# 清理
 apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 echo "=== 所有依赖安装完成（GCC 15 + libgccjit 已就绪）==="
