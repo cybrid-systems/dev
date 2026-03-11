@@ -3,9 +3,11 @@ set -euo pipefail
 
 echo "=== 安装语言工具 (NodeJS/Python/Rust/Racket) ==="
 
+export HOME=/home/dev
+
 # ==================== Node.js (LTS) ====================
-curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-apt-get install -y nodejs
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo bash -
+sudo apt-get install -y nodejs
 
 # ==================== Python 工具 ====================
 pipx ensurepath
@@ -13,7 +15,7 @@ pipx install isort pipenv nose pytest black pyflakes
 
 # ==================== Rust + fd ====================
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ln -sf $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
+sudo ln -sf $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
 
 # ==================== Racket ====================
 VERSION=9.1
@@ -31,7 +33,7 @@ esac
 INSTALLER="racket-${VERSION}-${RACKET_ARCH}-linux-buster-cs.sh"
 wget -q "https://download.racket-lang.org/installers/${VERSION}/${INSTALLER}" -O racket-installer.sh
 chmod +x racket-installer.sh
-echo -e "yes\n/usr/local" | ./racket-installer.sh
+echo -e "yes\n/usr/local" | sudo ./racket-installer.sh
 rm -f racket-installer.sh
 
 raco pkg install --auto --skip-installed fmt racket-langserver

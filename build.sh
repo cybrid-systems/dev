@@ -7,12 +7,12 @@ export TZ=Asia/Shanghai
 
 echo "=== 开始安装所有系统依赖 ==="
 
-apt-get update -qq
-apt-get install -y --no-install-recommends \
+sudo apt-get update -qq
+sudo apt-get install -y --no-install-recommends \
     software-properties-common curl wget git
 date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)Z" || true
 
-apt-get install -y --no-install-recommends \
+sudo apt-get install -y --no-install-recommends \
     build-essential apt-utils sudo gosu htop iotop tree \
     vim tmux zsh ack-grep pandoc bear net-tools bc libelf-dev libncurses-dev \
     libssl-dev libxml2-dev libedit-dev libz-dev \
@@ -27,25 +27,25 @@ apt-get install -y --no-install-recommends \
     texinfo flex bison libgmp3-dev libmpfr-dev libmpc-dev \
     locales tzdata
 
-add-apt-repository -y ppa:ubuntu-toolchain-r/test
-apt-get update -qq
+sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+sudo apt-get update -qq
 
-apt-get install -y --no-install-recommends \
+sudo apt-get install -y --no-install-recommends \
     gcc-${GCC_VERSION} g++-${GCC_VERSION} \
     libgccjit-${GCC_VERSION}-dev
 
-update-alternatives --remove-all gcc || true
+sudo update-alternatives --remove-all gcc || true
 
-update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 \
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 \
     --slave /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION}
-update-alternatives --set gcc /usr/bin/gcc-${GCC_VERSION}
+sudo update-alternatives --set gcc /usr/bin/gcc-${GCC_VERSION}
 
-locale-gen en_US.UTF-8
-echo "LANG=en_US.UTF-8" >/etc/default/locale
-ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-dpkg-reconfigure --frontend noninteractive tzdata
+sudo locale-gen en_US.UTF-8
+echo "LANG=en_US.UTF-8" | sudo tee /etc/default/locale
+sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+sudo dpkg-reconfigure --frontend noninteractive tzdata
 
 git config --global merge.conflictstyle diff3
 
-apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 echo "=== 所有依赖安装完成（GCC 15 + libgccjit 已就绪）==="
