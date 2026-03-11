@@ -72,3 +72,15 @@ docker exec -it --detach-keys="ctrl-z,z" angel /bin/zsh
 git config --global user.name $your_name
 git config --global user.email $your_email
 ```
+
+``` bash
+docker run -d -it --name angel \
+  --cap-add=SYS_PTRACE \
+  -e USER_UID=$(id -u) \
+  -e USER_GID=$(id -g) \
+  -v $(pwd):/home/dev/code \
+  -w /home/dev/code \
+  ghcr.io/cybrid-systems/dev:latest
+
+docker exec -it angel /bin/zsh
+```
