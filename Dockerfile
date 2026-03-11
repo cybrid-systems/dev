@@ -38,10 +38,16 @@ ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-RUN groupadd --gid $USER_GID $USERNAME \
-    && useradd --uid $USER_UID --gid $USER_GID -m -s /bin/zsh $USERNAME \
-    && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
-    && chmod 0440 /etc/sudoers.d/$USERNAME
+RUN if ! getent group 1000 >/dev/null; then \
+        groupadd --gid 1000 dev; \
+    fi && \
+    if ! getent passwd 1000 >/dev/null; then \
+        useradd --uid 1000 --gid 1000 -m -s /bin/zsh -G sudo dev; \
+    fi && \
+    echo "dev ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/dev && \
+    chmod 0440 /etc/sudoers.d/dev && \
+    mkdir -p /home/dev/code /home/dev/.cache/ccache && \
+    chown -R 1000:1000 /home/dev
 
 RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
 
