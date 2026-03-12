@@ -61,17 +61,14 @@ COPY *.el /home/${USERNAME}/
 COPY build-doom.sh /home/${USERNAME}/
 RUN sudo bash /home/${USERNAME}/build-doom.sh && rm /home/${USERNAME}/build-doom.sh /home/${USERNAME}/*.el
 
-# ==================== Stage 6: Final（gosu + entrypoint + 清理）===================
+# ==================== Stage 6: Final（去掉 gosu，使用内置 su）===================
 FROM emacs AS final
 
-# 安装 gosu（动态用户切换神器）
-RUN sudo apt-get update && sudo apt-get install -y gosu && sudo rm -rf /var/lib/apt/lists/*
-
+# 不再需要安装 gosu（su 是 Ubuntu 内置的）
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN sudo chmod +x /usr/local/bin/entrypoint.sh && \
-    sudo chmod 4755 /usr/sbin/gosu
+RUN sudo chmod +x /usr/local/bin/entrypoint.sh
 
-# 最终清理（作为 dev 用户）
+# 最终清理
 RUN sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     rm -f /home/${USERNAME}/*.sh /home/${USERNAME}/*.el
 

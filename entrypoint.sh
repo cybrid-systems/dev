@@ -9,8 +9,8 @@ if [ -n "$USER_GID" ] && [ "$USER_GID" != "1000" ]; then
     groupmod -g "$USER_GID" dev 2>/dev/null || true
 fi
 
-# 自动修复挂载目录权限（Mac/Linux 都 OK）
+# 自动修复挂载目录权限
 chown -R dev:dev /home/dev/code 2>/dev/null || true
 
-# 以非 root 用户身份执行
-exec gosu dev "$@"
+# 使用 Ubuntu 内置 su 执行（最稳定、无 setuid 问题）
+exec su - dev -c "$@"
