@@ -10,7 +10,7 @@ ARG USER_UID=1000
 ARG USER_GID=1000
 
 # Install sudo first as root (minimal layer)
-RUN apt-get update && apt-get install -y sudo && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y sudo && rm -rf /var/lib/apt/lists/
 
 # 早早创建 dev 用户 + sudo 免密 (idempotent version)
 RUN EXISTING_GROUP=$(getent group ${USER_GID} | cut -d: -f1 || true) && \
@@ -68,7 +68,8 @@ FROM emacs AS final
 RUN sudo apt-get update && sudo apt-get install -y gosu && sudo rm -rf /var/lib/apt/lists/*
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN sudo chmod +x /usr/local/bin/entrypoint.sh
+RUN sudo chmod +x /usr/local/bin/entrypoint.sh && \
+    sudo chmod 4755 /usr/bin/gosu
 
 # 最终清理（作为 dev 用户）
 RUN sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
