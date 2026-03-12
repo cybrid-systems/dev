@@ -69,7 +69,7 @@ RUN sudo apt-get update && sudo apt-get install -y gosu && sudo rm -rf /var/lib/
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN sudo chmod +x /usr/local/bin/entrypoint.sh && \
-    sudo chmod 4755 /usr/bin/gosu
+    sudo chmod 4755 /usr/sbin/gosu
 
 # 最终清理（作为 dev 用户）
 RUN sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
