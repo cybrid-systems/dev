@@ -8,27 +8,30 @@ curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
 apt-get install -y nodejs
 
 # ==================== Python 工具 ====================
-# 以dev用户运行pipx，避免root pip问题
+# 先确保/home/dev/.cache权限（可选，但防止root写问题）
+chown -R dev:dev /home/dev 2>/dev/null || true
+
+# 以dev用户运行pipx，避免权限问题
 su - dev -c "pipx ensurepath"
 su - dev -c "pipx install isort pipenv nose pytest black pyflakes"
 
 # ==================== Rust + fd ====================
-# 先安装fd-find（fdfind来源）
+# 先安装fd-find
 apt-get update && apt-get install -y fd-find && rm -rf /var/lib/apt/lists/*
 
-# 以dev用户运行rustup，避免HOME/euid错误
+# 以dev用户运行rustup，避免HOME/euid问题
 su - dev -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable"
 
-# 链接fd（fdfind到fd）
+# 链接fd
 ln -sf $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
 
 # ==================== Racket ====================
-# 添加PPA并apt安装（替换sh installer，避免兼容问题）
+# 添加PPA并apt安装
 add-apt-repository ppa:plt/racket -y
 apt-get update
 apt-get install -y racket
 
-# 系统级安装包（作为root，使用--installation）
+# 系统级安装包
 raco pkg install --auto --skip-installed --installation fmt racket-langserver
 
 echo "=== 语言工具安装完成 ==="
