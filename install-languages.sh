@@ -31,7 +31,7 @@ add-apt-repository ppa:plt/racket -y
 apt-get update
 apt-get install -y racket
 
-# 系统级安装包
-raco pkg install --auto --skip-installed --installation fmt racket-langserver
+# 以dev用户运行raco pkg install（用户级，避免root下petite加载问题）
+su - dev -c "raco pkg install --auto --skip-installed fmt racket-langserver"
 
 echo "=== 语言工具安装完成 ==="
