@@ -1,16 +1,12 @@
 FROM ubuntu:24.04 AS base
-
 ENV GCC_VERSION=15
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=en_US.UTF-8
 ENV TZ=Asia/Shanghai
-
 ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
-
 RUN apt-get update && apt-get install -y sudo && rm -rf /var/lib/apt/lists/
-
 RUN EXISTING_GROUP=$(getent group ${USER_GID} | cut -d: -f1 || true) && \
     if [ -n "${EXISTING_GROUP}" ] && [ "${EXISTING_GROUP}" != "${USERNAME}" ]; then \
         groupmod -n ${USERNAME} ${EXISTING_GROUP}; \
@@ -26,40 +22,42 @@ RUN EXISTING_GROUP=$(getent group ${USER_GID} | cut -d: -f1 || true) && \
     mkdir -p /etc/sudoers.d && \
     echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} && \
     chmod 0440 /etc/sudoers.d/${USERNAME}
-
-USER ${USERNAME}
 WORKDIR /home/${USERNAME}
 
+# Switch to root for build script and stay as root for inheritance
+USER root
 COPY build.sh /home/${USERNAME}/
-RUN sudo bash /home/${USERNAME}/build.sh && rm /home/${USERNAME}/build.sh
+RUN bash /home/${USERNAME}/build.sh && rm /home/${USERNAME}/build.sh
 
 FROM base AS tools
+# Already root from base
 COPY install-dev-tools.sh /home/${USERNAME}/
-RUN sudo bash /home/${USERNAME}/install-dev-tools.sh && rm /home/${USERNAME}/install-dev-tools.sh
+RUN bash /home/${USERNAME}/install-dev-tools.sh && rm /home/${USERNAME}/install-dev-tools.sh
 
 FROM tools AS languages
+# Already root
 COPY install-languages.sh /home/${USERNAME}/
-RUN sudo bash /home/${USERNAME}/install-languages.sh && rm /home/${USERNAME}/install-languages.sh
+RUN bash /home/${USERNAME}/install-languages.sh && rm /home/${USERNAME}/install-languages.sh
 
 FROM languages AS llvm
+# Already root
 COPY install-llvm.sh /home/${USERNAME}/
-RUN sudo bash /home/${USERNAME}/install-llvm.sh && rm /home/${USERNAME}/install-llvm.sh
+RUN bash /home/${USERNAME}/install-llvm.sh && rm /home/${USERNAME}/install-llvm.sh
 
 FROM llvm AS emacs
+# Already root
 COPY build-emacs.sh /home/${USERNAME}/
-RUN sudo bash /home/${USERNAME}/build-emacs.sh && rm /home/${USERNAME}/build-emacs.sh
+RUN bash /home/${USERNAME}/build-emacs.sh && rm /home/${USERNAME}/build-emacs.sh
 COPY *.el /home/${USERNAME}/
 COPY build-doom.sh /home/${USERNAME}/
-RUN sudo bash /home/${USERNAME}/build-doom.sh && rm /home/${USERNAME}/build-doom.sh /home/${USERNAME}/*.el
+RUN bash /home/${USERNAME}/build-doom.sh && rm /home/${USERNAME}/build-doom.sh /home/${USERNAME}/*.el
 
 FROM emacs AS final
-
+# Already root, stay as root for ENTRYPOINT
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN sudo chmod +x /usr/local/bin/entrypoint.sh
-
-RUN sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
+RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     rm -f /home/${USERNAME}/*.sh /home/${USERNAME}/*.el
-
 WORKDIR /home/dev/code
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["zsh"]

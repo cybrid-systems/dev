@@ -1,13 +1,17 @@
 #!/bin/bash
 set -e
 
-if [ -n "$USER_UID" ] && [ "$USER_UID" != "1000" ]; then
+# Adjust UID/GID if provided
+if [ -n "$USER_UID" ] && [ "$USER_UID" != "$(id -u dev)" ]; then
     usermod -u "$USER_UID" dev 2>/dev/null || true
 fi
-if [ -n "$USER_GID" ] && [ "$USER_GID" != "1000" ]; then
+if [ -n "$USER_GID" ] && [ "$USER_GID" != "$(id -g dev)" ]; then
     groupmod -g "$USER_GID" dev 2>/dev/null || true
 fi
 
+# Fix ownership for mounted volume and home
 chown -R dev:dev /home/dev/code 2>/dev/null || true
+chown -R dev:dev /home/dev 2>/dev/null || true
 
-exec su - dev -c "$@"
+# Drop to dev user and exec the command (e.g., zsh)
+exec su - dev -c "exec $@"
