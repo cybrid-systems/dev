@@ -33,7 +33,7 @@ esac
 INSTALLER="racket-${VERSION}-${RACKET_ARCH}-linux-buster-cs.sh"
 wget -q "https://download.racket-lang.org/installers/${VERSION}/${INSTALLER}" -O racket-installer.sh
 chmod +x racket-installer.sh
-echo -e "yes\n/usr/local" | sudo ./racket-installer.sh
+echo -e "yes\n/usr/local" | ./racket-installer.sh
 rm -f racket-installer.sh
 
 raco pkg install --auto --skip-installed fmt racket-langserver
