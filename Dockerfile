@@ -17,33 +17,28 @@ RUN EXISTING_GROUP=$(getent group ${USER_GID} | cut -d: -f1 || true) && \
     if [ -n "${EXISTING_USER}" ] && [ "${EXISTING_USER}" != "${USERNAME}" ]; then \
         usermod -l ${USERNAME} -d /home/${USERNAME} -m ${EXISTING_USER}; \
     elif ! getent passwd ${USER_UID} >/dev/null; then \
-        useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/zsh -G sudo ${USERNAME}; \
+        useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/zsh -G sudo,tty ${USERNAME}; \
     fi && \
     mkdir -p /etc/sudoers.d && \
     echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} && \
     chmod 0440 /etc/sudoers.d/${USERNAME}
 WORKDIR /home/${USERNAME}
-
 # Switch to root for build script and stay as root for inheritance
 USER root
 COPY build.sh /home/${USERNAME}/
 RUN bash /home/${USERNAME}/build.sh && rm /home/${USERNAME}/build.sh
-
 FROM base AS tools
 # Already root from base
 COPY install-dev-tools.sh /home/${USERNAME}/
 RUN bash /home/${USERNAME}/install-dev-tools.sh && rm /home/${USERNAME}/install-dev-tools.sh
-
 FROM tools AS languages
 # Already root
 COPY install-languages.sh /home/${USERNAME}/
 RUN bash /home/${USERNAME}/install-languages.sh && rm /home/${USERNAME}/install-languages.sh
-
 FROM languages AS llvm
 # Already root
 COPY install-llvm.sh /home/${USERNAME}/
 RUN bash /home/${USERNAME}/install-llvm.sh && rm /home/${USERNAME}/install-llvm.sh
-
 FROM llvm AS emacs
 # Already root
 COPY build-emacs.sh /home/${USERNAME}/
@@ -51,9 +46,22 @@ RUN bash /home/${USERNAME}/build-emacs.sh && rm /home/${USERNAME}/build-emacs.sh
 COPY *.el /home/${USERNAME}/
 COPY build-doom.sh /home/${USERNAME}/
 RUN bash /home/${USERNAME}/build-doom.sh && rm /home/${USERNAME}/build-doom.sh /home/${USERNAME}/*.el
-
 FROM emacs AS final
 # Already root, stay as root for ENTRYPOINT
+
+# Install gosu for proper privilege drop and TTY handling (multi-arch compatible)
+RUN apt-get update && apt-get install -y curl gnupg && \
+    ARCH="$(dpkg --print-architecture)" && \
+    curl -o /usr/local/bin/gosu -SL "https://github.com/tianon/gosu/releases/download/1.17/gosu-${ARCH}" && \
+    curl -o /usr/local/bin/gosu.asc -SL "https://github.com/tianon/gosu/releases/download/1.17/gosu-${ARCH}.asc" && \
+    export GNUPGHOME="$(mktemp -d)" && \
+    gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4 && \
+    gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu && \
+    rm -rf "${GNUPGHOME}" /usr/local/bin/gosu.asc && \
+    chmod +x /usr/local/bin/gosu && \
+    /usr/local/bin/gosu nobody true && \
+    apt-get purge -y --auto-remove curl gnupg && rm -rf /var/lib/apt/lists/*
+
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
