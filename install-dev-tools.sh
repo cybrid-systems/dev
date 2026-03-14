@@ -47,6 +47,7 @@ bind-key -T copy-mode-vi 'v' send -X begin-selection
 bind-key -T copy-mode-vi 'y' send -X copy-selection-and-cancel
 set -g prefix M-o
 bind M-o send-prefix
+set -g default-command "zsh"
 TMUX
 
 echo "=== 基础工具链安装完成 ==="
