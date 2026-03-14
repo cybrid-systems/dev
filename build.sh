@@ -13,7 +13,7 @@ sudo apt-get install -y --no-install-recommends \
 date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)Z" || true
 
 sudo apt-get install -y --no-install-recommends \
-    build-essential apt-utils sudo gosu htop iotop tree \
+    build-essential apt-utils sudo gosu htop iotop tree less \
     vim tmux zsh ack-grep pandoc bear net-tools bc libelf-dev libncurses-dev \
     libssl-dev libxml2-dev libedit-dev libz-dev \
     libxpm-dev libjpeg-dev libpng-dev libgif-dev libtiff-dev \

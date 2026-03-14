@@ -27,6 +27,10 @@ cd /tmp && rm -rf ninja
 
 # ==================== Oh My Zsh + tmux ====================
 sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended || true
+echo 'export PATH="$HOME/.cargo/bin:$HOME/.config/emacs/bin:$PATH:$HOME/.local/bin"
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+export TERM=xterm-256color' >>~/.zshrc
 
 cd /home/dev
 git clone https://github.com/gpakosz/.tmux.git
