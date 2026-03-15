@@ -13,8 +13,8 @@ cd /tmp
 wget -q https://github.com/Kitware/CMake/archive/refs/tags/$CMAKE_VERSION.tar.gz -O cmake.tar.gz
 tar -zxf cmake.tar.gz
 cd CMake-${CMAKE_VERSION:1}
-./bootstrap --parallel=14 --prefix=/usr/local
-make -j14 && sudo make install
+./bootstrap --parallel=16 --prefix=/usr/local
+make -j16 && sudo make install
 cd /tmp && rm -rf cmake* CMake-*
 
 # Ninja
