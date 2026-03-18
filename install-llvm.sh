@@ -3,7 +3,8 @@ set -euo pipefail
 
 # 1. 架构检测与变量设置
 ARCH=$(uname -m)
-VERSION="22.1.0"
+VERSION="22.1.1"
+VERSION_ENCODED="22.1.1%2F" # 编码斜杠
 TARGET_PYTHON="libpython3.11.so.1.0"
 INSTALL_DIR="/usr/local"
 
@@ -21,7 +22,7 @@ else
     exit 1
 fi
 
-URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${VERSION}/${FILENAME}"
+URL="https://mirrors.tuna.tsinghua.edu.cn/github-release/llvm/llvm-project/LLVM%20${VERSION_ENCODED}/${FILENAME}"
 
 # 2. 下载与安装
 echo "正在从 GitHub 下载 LLVM ${VERSION}..."
