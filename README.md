@@ -64,6 +64,10 @@ docker manifest inspect ghcr.io/cybrid-systems/dev:latest
 docker run -it --rm -v `pwd`/..:/root/code -w /root/code ghcr.io/cybrid-systems/dev /bin/zsh
 ```
 
+``` bash
+./test-image.sh
+```
+
 ## run
 
 ```bash
@@ -82,5 +86,5 @@ docker run -d -it --name angel \
   -w /home/dev/code \
   ghcr.io/cybrid-systems/dev:latest
 
-docker exec -it angel /bin/zsh
+docker exec -it -u dev angel /bin/zsh -l
 ```
