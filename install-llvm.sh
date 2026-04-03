@@ -4,7 +4,7 @@ set -euo pipefail
 # 1. 架构检测与变量设置
 ARCH=$(uname -m)
 VERSION="22.1.2"
-VERSION_ENCODED="22.1.2%2F" # 编码斜杠
+VERSION_ENCODED="$VERSION%2F" # 编码斜杠
 TARGET_PYTHON="libpython3.11.so.1.0"
 INSTALL_DIR="/usr/local"
 
