@@ -6,6 +6,16 @@ export HOME=/home/dev
 # ==================== Node.js (LTS) ====================
 curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
 apt-get install -y nodejs
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0 &&
+    sudo corepack enable pnpm &&
+    sudo corepack prepare pnpm@latest --activate &&
+    pnpm setup &&
+    cat >>~/.zshrc <<'EOF'
+
+export PNPM_HOME="/home/dev/.local/share/pnpm"
+export PATH="$PNPM_HOME:$PATH"
+EOF
+pnpm add -g openclaw@latest
 
 # ==================== Python 工具 ====================
 # 先确保/home/dev/.cache权限（可选，但防止root写问题）

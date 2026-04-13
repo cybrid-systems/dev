@@ -1,0 +1,454 @@
+#!/bin/bash
+# doom-commands.sh - Doom Emacs bridge核心命令
+
+set -e
+
+# 颜色输出
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# 配置
+DOOM_EMACS_DAEMON=${DOOM_EMACS_DAEMON:-true}
+DOOM_GPTEL_MODEL=${DOOM_GPTEL_MODEL:-"deepseek-chat"}
+DOOM_TMUX_SESSION_PREFIX=${DOOM_TMUX_SESSION_PREFIX:-"dev"}
+DOOM_WORKSPACE_ROOT=${DOOM_WORKSPACE_ROOT:-"$HOME/code"}
+
+# 检查Emacs daemon
+check_emacs_daemon() {
+    if [ "$DOOM_EMACS_DAEMON" = "true" ]; then
+        if ! emacsclient -e "(message \"ping\")" >/dev/null 2>&1; then
+            echo -e "${YELLOW}⚠️  Emacs daemon未运行，尝试启动...${NC}"
+            emacs --daemon >/dev/null 2>&1 &
+            sleep 2
+            if ! emacsclient -e "(message \"ping\")" >/dev/null 2>&1; then
+                echo -e "${RED}❌ 无法启动Emacs daemon${NC}"
+                return 1
+            fi
+        fi
+    fi
+    return 0
+}
+
+# 基础命令
+doom-open-file() {
+    local file_path="$1"
+    local line_num="${2:-}"
+    
+    check_emacs_daemon || return 1
+    
+    if [ -z "$file_path" ]; then
+        echo -e "${RED}❌ 需要文件路径${NC}"
+        echo "用法: doom-open-file <文件路径> [行号]"
+        return 1
+    fi
+    
+    if [ ! -f "$file_path" ] && [ ! -d "$(dirname "$file_path")" ]; then
+        echo -e "${YELLOW}⚠️  文件不存在，但尝试打开${NC}"
+    fi
+    
+    local emacs_cmd="(find-file \"$file_path\")"
+    if [ -n "$line_num" ]; then
+        emacs_cmd="(progn (find-file \"$file_path\") (goto-line $line_num))"
+    fi
+    
+    echo -e "${GREEN}📂 打开文件: $file_path${NC}"
+    if [ -n "$line_num" ]; then
+        echo -e "   跳转到第 $line_num 行"
+    fi
+    
+    emacsclient -n -e "$emacs_cmd"
+}
+
+doom-open-file-terminal() {
+    local file_path="$1"
+    
+    if [ -z "$file_path" ]; then
+        echo -e "${RED}❌ 需要文件路径${NC}"
+        return 1
+    fi
+    
+    echo -e "${GREEN}📟 在终端中打开: $file_path${NC}"
+    emacsclient -t -n "$file_path"
+}
+
+doom-save-buffer() {
+    check_emacs_daemon || return 1
+    
+    echo -e "${GREEN}💾 保存当前缓冲区${NC}"
+    emacsclient -e "(save-buffer)"
+}
+
+doom-save-all() {
+    check_emacs_daemon || return 1
+    
+    echo -e "${GREEN}💾 保存所有缓冲区${NC}"
+    emacsclient -e "(save-some-buffers t)"
+}
+
+doom-close-buffer() {
+    check_emacs_daemon || return 1
+    
+    echo -e "${GREEN}❌ 关闭当前缓冲区${NC}"
+    emacsclient -e "(kill-this-buffer)"
+}
+
+doom-close-all() {
+    check_emacs_daemon || return 1
+    
+    echo -e "${GREEN}❌ 关闭所有缓冲区${NC}"
+    emacsclient -e "(progn (mapc 'kill-buffer (buffer-list)) (message \"所有缓冲区已关闭\"))"
+}
+
+# gptel命令
+doom-analyze-error() {
+    local error_text="$1"
+    
+    if [ -z "$error_text" ]; then
+        echo -e "${RED}❌ 需要错误信息${NC}"
+        echo "用法: doom-analyze-error \"错误信息\""
+        return 1
+    fi
+    
+    check_emacs_daemon || return 1
+    
+    echo -e "${GREEN}🤖 使用gptel分析错误...${NC}"
+    
+    # 转义特殊字符
+    error_text=$(echo "$error_text" | sed 's/"/\\"/g' | sed "s/'/\\'/g")
+    
+    local emacs_cmd="(progn
+  (require 'gptel)
+  (gptel)
+  (insert \"分析以下编译错误并提供修复方案：\\n\\n\")
+  (insert \"$error_text\")
+  (gptel-send))"
+  
+    emacsclient -n -e "$emacs_cmd"
+    echo -e "${GREEN}✅ 错误已发送到gptel，请查看Emacs窗口${NC}"
+}
+
+doom-analyze-code() {
+    local code_text="$1"
+    local context="${2:-"请分析以下代码："}"
+    
+    if [ -z "$code_text" ]; then
+        echo -e "${RED}❌ 需要代码内容${NC}"
+        return 1
+    fi
+    
+    check_emacs_daemon || return 1
+    
+    echo -e "${GREEN}🤖 使用gptel分析代码...${NC}"
+    
+    code_text=$(echo "$code_text" | sed 's/"/\\"/g' | sed "s/'/\\'/g")
+    
+    local emacs_cmd="(progn
+  (require 'gptel)
+  (gptel)
+  (insert \"$context\\n\\n\")
+  (insert \"$code_text\")
+  (gptel-send))"
+  
+    emacsclient -n -e "$emacs_cmd"
+}
+
+doom-start-gptel() {
+    check_emacs_daemon || return 1
+    
+    echo -e "${GREEN}🤖 启动gptel...${NC}"
+    emacsclient -n -e "(gptel)" -c
+}
+
+doom-gptel-send() {
+    local message="$1"
+    
+    if [ -z "$message" ]; then
+        echo -e "${RED}❌ 需要消息内容${NC}"
+        return 1
+    fi
+    
+    check_emacs_daemon || return 1
+    
+    message=$(echo "$message" | sed 's/"/\\"/g' | sed "s/'/\\'/g")
+    
+    local emacs_cmd="(progn
+  (require 'gptel)
+  (with-current-buffer (gptel-get-buffer-create)
+    (insert \"$message\")
+    (gptel-send)))"
+  
+    emacsclient -n -e "$emacs_cmd"
+}
+
+doom-copy-gptel-response() {
+    check_emacs_daemon || return 1
+    
+    echo -e "${GREEN}📋 复制gptel响应...${NC}"
+    emacsclient -n -e "(progn
+  (require 'gptel)
+  (when (gptel-get-buffer-create)
+    (with-current-buffer (gptel-get-buffer-create)
+      (gptel-copy-response))))"
+}
+
+# tmux集成
+doom-tmux-to-gptel() {
+    if ! command -v tmux >/dev/null 2>&1; then
+        echo -e "${RED}❌ tmux未安装${NC}"
+        return 1
+    fi
+    
+    if ! tmux info >/dev/null 2>&1; then
+        echo -e "${RED}❌ tmux服务器未运行${NC}"
+        return 1
+    fi
+    
+    echo -e "${GREEN}📋 捕获tmux内容到gptel...${NC}"
+    
+    # 捕获tmux窗格内容
+    local tmux_content=$(tmux capture-pane -p -S -1000 | sed '/^[[:space:]]*$/d')
+    
+    if [ -z "$tmux_content" ]; then
+        echo -e "${YELLOW}⚠️  tmux内容为空${NC}"
+        return 0
+    fi
+    
+    doom-analyze-code "$tmux_content" "分析以下终端输出："
+}
+
+doom-gptel-to-tmux() {
+    if ! command -v tmux >/dev/null 2>&1; then
+        echo -e "${RED}❌ tmux未安装${NC}"
+        return 1
+    fi
+    
+    if ! tmux info >/dev/null 2>&1; then
+        echo -e "${RED}❌ tmux服务器未运行${NC}"
+        return 1
+    fi
+    
+    echo -e "${GREEN}📤 发送gptel响应到tmux...${NC}"
+    
+    # 获取gptel最新响应
+    check_emacs_daemon || return 1
+    
+    local response=$(emacsclient -e "(progn
+  (require 'gptel)
+  (when (gptel-get-buffer-create)
+    (with-current-buffer (gptel-get-buffer-create)
+      (buffer-substring-no-properties
+       (point-min)
+       (point-max)))))" 2>/dev/null)
+    
+    if [ -z "$response" ] || [ "$response" = "nil" ]; then
+        echo -e "${YELLOW}⚠️  没有gptel响应可发送${NC}"
+        return 0
+    fi
+    
+    # 发送到tmux
+    echo "$response" | while IFS= read -r line; do
+        tmux send-keys "$line" C-m
+        sleep 0.1
+    done
+    
+    echo -e "${GREEN}✅ gptel响应已发送到tmux${NC}"
+}
+
+doom-create-dev-session() {
+    local project_dir="${1:-$(pwd)}"
+    local project_name=$(basename "$project_dir")
+    local session_name="${DOOM_TMUX_SESSION_PREFIX}-${project_name}"
+    
+    if ! command -v tmux >/dev/null 2>&1; then
+        echo -e "${RED}❌ tmux未安装${NC}"
+        return 1
+    fi
+    
+    echo -e "${GREEN}🚀 创建开发会话: $session_name${NC}"
+    echo -e "   项目目录: $project_dir"
+    
+    # 检查会话是否已存在
+    if tmux has-session -t "$session_name" 2>/dev/null; then
+        echo -e "${YELLOW}⚠️  会话已存在，附加到现有会话${NC}"
+        tmux attach -t "$session_name"
+        return 0
+    fi
+    
+    # 创建新会话
+    tmux new-session -d -s "$session_name" -n "editor" -c "$project_dir"
+    
+    # 创建其他窗口
+    tmux new-window -t "$session_name" -n "shell" -c "$project_dir"
+    tmux new-window -t "$session_name" -n "logs" -c "$project_dir"
+    tmux new-window -t "$session_name" -n "git" -c "$project_dir"
+    
+    # 设置编辑器窗口（打开Emacs）
+    tmux send-keys -t "$session_name":editor "emacsclient -c ." C-m
+    
+    # 设置shell窗口
+    tmux send-keys -t "$session_name":shell "echo '开发环境就绪'" C-m
+    tmux send-keys -t "$session_name":shell "ls -la" C-m
+    
+    # 返回编辑器窗口
+    tmux select-window -t "$session_name":editor
+    
+    echo -e "${GREEN}✅ 开发会话创建完成${NC}"
+    echo -e "${BLUE}💡 附加到会话: tmux attach -t $session_name${NC}"
+    
+    # 询问是否附加
+    read -p "是否现在附加到会话? [Y/n] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        tmux attach -t "$session_name"
+    fi
+}
+
+# 系统命令
+doom-restart-daemon() {
+    echo -e "${GREEN}🔄 重启Emacs daemon...${NC}"
+    
+    # 杀死现有daemon
+    if emacsclient -e "(kill-emacs)" >/dev/null 2>&1; then
+        echo -e "  杀死现有daemon"
+        sleep 1
+    fi
+    
+    # 启动新daemon
+    emacs --daemon >/dev/null 2>&1 &
+    sleep 2
+    
+    if emacsclient -e "(message \"ready\")" >/dev/null 2>&1; then
+        echo -e "${GREEN}✅ Emacs daemon重启完成${NC}"
+    else
+        echo -e "${RED}❌ Emacs daemon启动失败${NC}"
+        return 1
+    fi
+}
+
+doom-health-check() {
+    echo -e "${BLUE}🏥 Doom Emacs健康检查${NC}"
+    echo -e "${YELLOW}========================================${NC}"
+    
+    # 检查Emacs daemon
+    echo -e "${GREEN}1. Emacs daemon状态:${NC}"
+    if emacsclient -e "(message \"ping\")" >/dev/null 2>&1; then
+        echo -e "   ✅ 运行中"
+    else
+        echo -e "   ❌ 未运行"
+    fi
+    
+    # 检查gptel
+    echo -e "${GREEN}2. gptel状态:${NC}"
+    if emacsclient -e "(featurep 'gptel)" >/dev/null 2>&1; then
+        echo -e "   ✅ 已加载"
+        
+        # 检查API密钥
+        local api_key_status=$(emacsclient -e "(if gptel-api-key \"已设置\" \"未设置\")" 2>/dev/null)
+        echo -e "   📋 API密钥: $api_key_status"
+    else
+        echo -e "   ❌ 未加载"
+    fi
+    
+    # 检查tmux
+    echo -e "${GREEN}3. tmux状态:${NC}"
+    if command -v tmux >/dev/null 2>&1; then
+        echo -e "   ✅ 已安装"
+        if tmux info >/dev/null 2>&1; then
+            echo -e "   🖥️  服务器运行中"
+        else
+            echo -e "   ⚠️  服务器未运行"
+        fi
+    else
+        echo -e "   ❌ 未安装"
+    fi
+    
+    # 检查剪贴板工具
+    echo -e "${GREEN}4. 剪贴板工具:${NC}"
+    if command -v xclip >/dev/null 2>&1; then
+        echo -e "   ✅ xclip"
+    elif command -v xsel >/dev/null 2>&1; then
+        echo -e "   ✅ xsel"
+    elif command -v pbcopy >/dev/null 2>&1; then
+        echo -e "   ✅ pbcopy (macOS)"
+    else
+        echo -e "   ❌ 未找到"
+    fi
+    
+    echo -e "${YELLOW}========================================${NC}"
+}
+
+# 帮助命令
+doom-help() {
+    cat << EOF
+${BLUE}Doom Emacs Bridge命令${NC}
+${YELLOW}========================================${NC}
+
+${GREEN}文件操作:${NC}
+  doom-open-file <文件> [行号]     打开文件（可选行号）
+  doom-open-file-terminal <文件>   在终端中打开文件
+  doom-save-buffer                 保存当前缓冲区
+  doom-save-all                    保存所有缓冲区
+  doom-close-buffer                关闭当前缓冲区
+  doom-close-all                   关闭所有缓冲区
+
+${GREEN}gptel AI集成:${NC}
+  doom-analyze-error <错误信息>    分析编译错误
+  doom-analyze-code <代码> [上下文] 分析代码
+  doom-start-gptel                 启动gptel对话
+  doom-gptel-send <消息>           发送消息到gptel
+  doom-copy-gptel-response         复制gptel响应
+
+${GREEN}tmux集成:${NC}
+  doom-tmux-to-gptel               复制tmux内容到gptel
+  doom-gptel-to-tmux               发送gptel响应到tmux
+  doom-create-dev-session [目录]   创建开发会话
+
+${GREEN}系统命令:${NC}
+  doom-restart-daemon              重启Emacs daemon
+  doom-health-check                运行健康检查
+  doom-help                        显示此帮助
+
+${YELLOW}环境变量:${NC}
+  DOOM_EMACS_DAEMON=true           自动管理daemon
+  DOOM_GPTEL_MODEL="deepseek-chat" gptel模型
+  DOOM_TMUX_SESSION_PREFIX="dev"   tmux会话前缀
+  DOOM_WORKSPACE_ROOT="\$HOME/code" 工作区根目录
+
+${YELLOW}示例:${NC}
+  # 修复编译错误工作流
+  cd ~/code/redis-src
+  make 2>&1 | tee /tmp/errors.log
+  doom-analyze-error "\$(cat /tmp/errors.log)"
+  
+  # 创建开发环境
+  doom-create-dev-session ~/projects/myapp
+  
+  # 健康检查
+  doom-health-check
+
+${YELLOW}========================================${NC}
+EOF
+}
+
+# 如果没有参数，显示帮助
+if [ $# -eq 0 ]; then
+    doom-help
+    exit 0
+fi
+
+# 执行命令
+command="doom-$1"
+shift
+
+if type "$command" >/dev/null 2>&1; then
+    "$command" "$@"
+else
+    echo -e "${RED}❌ 未知命令: $1${NC}"
+    echo "可用命令:"
+    echo "  open-file, save-buffer, analyze-error, start-gptel, ..."
+    echo "使用 'doom-help' 查看完整列表"
+    exit 1
+fi

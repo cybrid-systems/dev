@@ -90,9 +90,21 @@ docker run -d -it --name angel \
   --cap-add=SYS_PTRACE \
   -e USER_UID=$(id -u) \
   -e USER_GID=$(id -g) \
+  -p 18789:18789 \
+  -p 18791:18791 \
   -v $(pwd):/home/dev/code \
   -w /home/dev/code \
   ghcr.io/cybrid-systems/dev:latest
 
 docker exec -it -u dev angel /bin/zsh -l
+```
+
+## openclaw
+
+```bash
+openclaw update
+openclaw onboard
+openclaw config set gateway.bind lan
+openclaw config set agents.defaults.workspace ~/code/workspace
+openclaw gateway
 ```
