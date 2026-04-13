@@ -15,6 +15,8 @@ export COREPACK_ENABLE_DOWNLOAD_PROMPT=0 &&
 export PNPM_HOME="/home/dev/.local/share/pnpm"
 export PATH="$PNPM_HOME:$PATH"
 EOF
+export PNPM_HOME="/home/dev/.local/share/pnpm"
+export PATH="$PNPM_HOME:$PATH"
 pnpm add -g openclaw@latest
 
 # ==================== Python 工具 ====================
