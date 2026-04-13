@@ -3,7 +3,7 @@ set -euo pipefail
 
 # 1. 架构检测与变量设置
 ARCH=$(uname -m)
-VERSION="22.1.2"
+VERSION="22.1.3"
 VERSION_ENCODED="$VERSION%2F" # 编码斜杠
 TARGET_PYTHON="libpython3.11.so.1.0"
 INSTALL_DIR="/usr/local"
@@ -59,7 +59,7 @@ fi
 ldconfig
 echo "---------------------------------------"
 if command -v clang >/dev/null; then
-    echo "LLVM 22.1.0 安装完成！"
+    echo "LLVM $VERSION 安装完成！"
     clang --version | head -n 1
     lldb --version | head -n 1
 else
