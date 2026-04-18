@@ -87,6 +87,7 @@ install_script() {
 install_script "tmux2gptel.sh"
 install_script "gptel2tmux.sh"
 install_script "dev-session.sh"
+install_script "tmux-clipboard-integration.sh"
 
 # Check PATH
 echo -e "${GREEN}🛣️  Checking PATH...${NC}"
@@ -228,6 +229,12 @@ else
     echo -e "  ❌ dev-session not found"
 fi
 
+if [ -f "$BIN_DIR/tmux-clipboard-integration" ]; then
+    echo -e "  ✅ tmux-clipboard-integration installed"
+else
+    echo -e "  ❌ tmux-clipboard-integration not found"
+fi
+
 # Completion
 echo ""
 echo -e "${GREEN}✅ Installation complete!${NC}"
@@ -236,6 +243,7 @@ echo -e "${BLUE}🎉 Available commands:${NC}"
 echo -e "  ${GREEN}tmux2gptel${NC}    - Copy tmux content to gptel"
 echo -e "  ${GREEN}gptel2tmux${NC}    - Send gptel response to tmux"
 echo -e "  ${GREEN}dev-session${NC}   - Create development session"
+echo -e "  ${GREEN}tci${NC}           - tmux clipboard integration (advanced)"
 echo ""
 echo -e "${BLUE}🚀 Next steps:${NC}"
 echo "1. Ensure ~/bin is in PATH (run: source ~/.zshrc)"
