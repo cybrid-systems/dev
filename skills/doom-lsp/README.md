@@ -1,97 +1,141 @@
-# Doom LSP 极简技能
+# Doom LSP 极简技能 v2.1.0
 
-让 OpenClaw 直接使用 Doom Emacs 的 LSP 能力（定义跳转、诊断、补全、hover、rename 等）。
+让 OpenClaw 直接使用 Doom Emacs 的 LSP 能力，并提供 Redis 专用分析工具。
 
-## 快速开始
+## 🚀 快速开始
 
 ### 1. 安装技能
 
 ```bash
-# 克隆或复制到技能目录
-cd ~/code/workspace/skills
-mkdir -p doom-lsp
-# 复制所有文件到此目录
-```
-
-### 2. 安装 Bridge 脚本
-
-```bash
+# 进入技能目录
 cd ~/code/workspace/skills/doom-lsp
+
+# 安装基础 LSP 工具
 chmod +x scripts/doom-lsp-bridge.sh
-sudo ln -s $(pwd)/scripts/doom-lsp-bridge.sh /usr/local/bin/doom-lsp
+sudo ln -sf $(pwd)/scripts/doom-lsp-bridge.sh /usr/local/bin/doom-lsp
+
+# 安装 Redis 分析工具
+chmod +x install-redis-analyzer.sh
+./install-redis-analyzer.sh
 ```
 
-### 3. 验证安装
+### 2. 验证安装
 
 ```bash
-# 检查 Emacs daemon
-emacs --daemon
-
-# 测试 bridge
+# 检查基础工具
 doom-lsp health-check
+
+# 检查 Redis 分析工具
+redis-analyzer help
 ```
 
-## 前置要求
+### 3. 配置环境（可选）
 
+```bash
+# 设置 Redis 目录
+export REDIS_DIR=/home/dev/code/redis
+
+# 设置项目编译数据库
+doom-lsp setup-project "$REDIS_DIR"
+```
+
+## 📋 前置要求
+
+### 基础要求
 1. **Doom Emacs** 已安装并配置
 2. **LSP 模块** 已启用（在 `~/.doom.d/init.el` 中添加 `:tools lsp`）
 3. **Emacs daemon** 正在运行（`emacs --daemon`）
 4. **语言服务器** 已安装（clangd、pyright、rust-analyzer 等）
 
-## 核心命令
+### Redis 分析要求
+1. **Redis 源码**：需要 Redis 项目目录
+2. **编译数据库**：需要 `compile_commands.json` 文件
+3. **环境变量**：建议设置 `REDIS_DIR` 环境变量
 
+## 🛠️ 核心命令
+
+### 基础 LSP 命令
 ```bash
 # 健康检查
 doom-lsp health-check
 
-# 打开文件（可选行号）
-doom-lsp open-file <文件路径> [行号]
+# 项目设置
+doom-lsp setup-project <目录>
+doom-lsp check-compile-db <路径>
 
-# 查看诊断信息
-doom-lsp diagnostics <文件路径>
+# 文件导航
+doom-lsp open-file <文件> [行] [列]
+doom-lsp list-functions <文件>
 
-# 跳转到定义
-doom-lsp find-def <文件路径> <符号名>
-
-# 查找引用
-doom-lsp find-ref <文件路径> <符号名>
-
-# 显示悬停信息
-doom-lsp hover <文件路径> <行> <列>
-
-# 重命名符号
-doom-lsp rename <文件路径> <行> <列> <新名称>
+# 符号操作
+doom-lsp find-symbol <文件> <符号>
+doom-lsp find-def <文件> <符号>
 ```
 
-## 使用示例
+### Redis 分析命令
+```bash
+# 命令分析
+redis-analyzer analyze <command>       # 分析 Redis 命令
+redis-analyzer chain <function>        # 分析函数调用链
+redis-analyzer report <command>        # 生成分析报告
+redis-analyzer batch [commands...]     # 批量分析命令
+redis-analyzer interactive             # 交互式分析
+```
 
-### 开发工作流
+## 🎯 使用示例
+
+### Redis 开发工作流
 
 ```bash
-# 1. 打开文件并启动 LSP
-doom-lsp open-file src/main.c 42
+# 1. 设置项目环境
+doom-lsp setup-project ~/code/redis
 
-# 2. 查看当前错误
-doom-lsp diagnostics src/main.c
+# 2. 分析 SET 命令
+redis-analyzer analyze set
+# 输出: 找到 setCommand 实现，显示关键调用链
 
-# 3. 跳转到函数定义
-doom-lsp find-def src/main.c "my_function"
+# 3. 批量分析常用命令
+redis-analyzer batch set get incr decr
+# 输出: 逐个分析每个命令的实现
 
-# 4. 重命名变量
-doom-lsp rename src/main.c 23 15 "new_variable_name"
+# 4. 深入分析调用链
+redis-analyzer chain dictAdd
+# 输出: dictAdd 函数的定义、调用关系和被调用情况
 
-# 5. 查找所有引用
-doom-lsp find-ref src/main.c "my_function"
+# 5. 生成详细报告
+redis-analyzer report set
+# 输出: 生成 Markdown 格式的分析报告
+```
+
+### 基础代码导航
+
+```bash
+# 1. 查找符号位置
+doom-lsp find-symbol src/server.c "initServer"
+# 输出: 1882:1
+
+# 2. 打开文件查看
+doom-lsp open-file src/server.c 1882 1
+# Emacs 中打开文件到指定位置
+
+# 3. 跳转到定义
+doom-lsp find-def src/server.c "initServer"
+# 尝试跳转到函数定义
+
+# 4. 查看代码结构
+doom-lsp list-functions src/server.c | head -10
+# 列出文件中的函数
 ```
 
 ### 与 OpenClaw 集成
 
 在 OpenClaw 中，你可以：
 
-1. **自动诊断代码**：定期运行 `doom-lsp diagnostics` 检查代码质量
-2. **智能导航**：使用 `find-def` 和 `find-ref` 理解代码结构
-3. **批量重命名**：使用 `rename` 安全地重构代码
-4. **实时反馈**：结合 LSP 诊断进行持续集成
+1. **自动化代码分析**：定期运行 Redis 命令分析
+2. **智能代码导航**：快速理解复杂代码结构
+3. **批量代码审查**：一次性分析多个相关功能
+4. **文档自动生成**：基于分析结果生成技术文档
+5. **团队知识共享**：分享分析报告和调用图
 
 ## 故障排除
 
