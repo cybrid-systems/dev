@@ -5,10 +5,28 @@ description: 完整的Doom Emacs开发环境配置、使用和集成。包括gpt
 
 # Doom Emacs 完整开发环境技能
 
+> 📅 **最后更新**: 2026-04-18 | **兼容**: Doom Emacs 最新版 + OpenClaw
+
 这个技能整合了三个相关的技能：
 1. **doom-gptel** - AI聊天集成
 2. **doom-lsp** - 语言服务器集成
 3. **doom-emacs-bridge** - OpenClaw桥接工具
+
+## 📖 目录
+
+- [🚀 快速开始](#-快速开始)
+- [⌨️ Doom Emacs 核心快捷键](#️-doom-emacs-核心快捷键leader-键速查)
+- [🤖 GPTel AI聊天集成](#-gptel-ai聊天集成)
+- [🔧 LSP语言服务器集成](#-lsp语言服务器集成)
+- [🌉 OpenClaw桥接工具](#-openclaw桥接工具)
+- [🔗 tmux集成工作流](#-tmux集成工作流)
+- [🛠️ 开发工作流示例](#️-开发工作流示例)
+- [📊 故障排除](#-故障排除)
+- [🎯 最佳实践](#-最佳实践)
+- [📁 技能结构](#-技能结构)
+- [🔄 更新和维护](#-更新和维护)
+- [📚 扩展资源](#-扩展资源)
+- [🎉 开始使用](#-开始使用)
 
 ## 🚀 快速开始
 
@@ -53,113 +71,98 @@ tmux2gptel --help
 
 ## ⌨️ Doom Emacs 核心快捷键（Leader 键速查）
 
-Doom Emacs 使用 **SPC**（空格键）作为 Leader 键，所有常用操作都以 `SPC + 字母` 触发。
+Doom Emacs 使用 **SPC（空格键）** 作为全局 Leader 键，所有常用操作都走这个前缀。
 
-### 💻 代码操作（最常用） `SPC c`
+### 代码操作（最常用） `SPC c`
 
 | 快捷键 | 功能 | 对应命令 |
-|--------------|-------------------------------|------------------------------|
-| `SPC c d` | 跳转到定义（Definition） | `lsp-find-definition` / `xref-find-definitions` |
-| **`SPC c D`** | **查找引用（References）** | `lsp-find-references` / `xref-find-references` |
-| `SPC c a` | 代码动作（Code Actions） | `lsp-execute-code-action` |
+|------------|------------------------|-----------------------------------|
+| `SPC c d` | 跳转到定义 | `lsp-find-definition` |
+| **`SPC c D`** | **查找引用** | `lsp-find-references` |
+| `SPC c a` | 代码动作（快速修复） | `lsp-execute-code-action` |
 | `SPC c r` | 重命名符号 | `lsp-rename` |
-| `SPC c f` | 格式化当前文件/选中区域 | `lsp-format-buffer` |
-| `SPC c e` | 列出错误/诊断 | `flycheck-list-errors` |
-| `SPC c l` | LSP 专属菜单 | `lsp-command-map` |
-| `SPC c h` | 查看文档（Hover） | `lsp-ui-doc-glance` |
-| `SPC c i` | 查看实现（Implementations） | `lsp-find-implementation` |
+| `SPC c f` | 格式化当前缓冲区 | `lsp-format-buffer` |
+| `SPC c e` | 显示错误/诊断列表 | `flycheck-list-errors` |
 
-### 📁 文件 / 项目操作 `SPC p` / `SPC f`
+### 项目 & 文件 `SPC p / SPC f`
 
 | 快捷键 | 功能 |
 |------------|--------------------------|
 | `SPC p p` | 切换项目 |
 | `SPC p f` | 在项目中查找文件 |
-| `SPC p s` | 在项目中搜索文本 |
-| `SPC f f` | 查找文件（当前目录） |
+| `SPC f f` | 查找文件 |
 | `SPC f r` | 最近打开的文件 |
-| `SPC f s` | 保存文件 |
-| `SPC f S` | 保存所有文件 |
-| `SPC f y` | 复制文件路径 |
+| `SPC f s` | 保存所有文件 |
 
-### 🔍 搜索 / 跳转 `SPC s`
+### 搜索 & 跳转 `SPC s`
 
 | 快捷键 | 功能 |
 |------------|--------------------------|
-| `SPC s s` | 全文搜索（ripgrep） |
-| `SPC s d` | 在当前目录搜索 |
-| `SPC s p` | 在项目中搜索 |
+| `SPC s s` | 项目全文搜索（ripgrep） |
+| `SPC s p` | 在当前项目搜索 |
 | `SPC s i` | 跳转到符号（imenu） |
-| `SPC s j` | 跳转到行 |
-| `SPC s /` | 搜索当前缓冲区 |
 
-### 🪟 窗口 / 缓冲区管理 `SPC w` / `SPC b`
+### 本 Skill 增强功能
 
-| 快捷键 | 功能 |
-|------------|--------------------------|
-| `SPC w h/j/k/l` | 向左/下/上/右移动窗口 |
-| `SPC w H/J/K/L` | 移动窗口位置 |
-| `SPC w =` | 均衡窗口大小 |
-| `SPC w d` | 删除窗口 |
-| `SPC w o` | 最大化窗口 |
-| `SPC b b` | 切换缓冲区 |
-| `SPC b d` | 关闭缓冲区 |
-| `SPC b k` | 杀死缓冲区 |
-| `SPC b n` | 下一个缓冲区 |
-| `SPC b p` | 上一个缓冲区 |
+| 快捷键 / 命令 | 功能 |
+|------------------------|-------------------------------|
+| `doombridge health-check` | 环境健康检查 |
+| `doombridge create-dev-session <dir>` | 一键启动开发会话（tmux+Emacs） |
+| `M-x gptel` | 打开 AI 聊天窗口 |
+| `SPC o d`（推荐自定义）| 打开 doombridge 菜单 |
 
-### 🤖 GPTel AI 快捷键（本 Skill 增强）
+> 💡 **小技巧**：任何时候按 `SPC h k` 再按一个键，就能实时查看该键的绑定说明。
 
-| 快捷键 | 功能 |
-|------------------|-------------------------------|
-| `M-x gptel` | 打开/切换 GPTel 聊天窗口 |
-| `C-c <` | 在代码中选中区域后发送给 AI |
-| `C-c >` | 将 AI 回答插入当前缓冲区 |
-| `SPC g g` | （推荐自定义）全局 GPTel 菜单 |
+### 🎯 Daily Recommended Workflow
 
-### 🆘 帮助系统 `SPC h`
+#### 晨间启动
+```bash
+# 1. 启动环境
+emacs --daemon
 
-| 快捷键 | 功能 |
-|------------|--------------------------|
-| `SPC h k` | 查看按键绑定（按任意键查看说明） |
-| `SPC h f` | 查看函数文档 |
-| `SPC h v` | 查看变量文档 |
-| `SPC h m` | 查看当前模式文档 |
-| `SPC h d` | 搜索文档 |
+# 2. 创建开发会话
+doombridge create-dev-session ~/code/my-project
 
-> 💡 **提示**：
-> 1. 按 `SPC h k` 后按任意键，可以实时查看该键的绑定说明（Doom 内置帮助）
-> 2. 使用 `M-x` 后输入命令名可以执行任何 Emacs 命令
-> 3. `C-g` 取消当前操作，`C-x C-c` 保存并退出
-> 4. 所有快捷键都可以在 `~/.doom.d/config.el` 中自定义
-
-### 🎯 开发工作流示例
-
-#### Redis 代码分析工作流：
-```elisp
-;; 1. 打开文件
-SPC f f ~/code/redis/src/dict.c
-
-;; 2. 跳转到 dictFind 函数定义
-SPC c d on "dictFind"
-
-;; 3. 查找所有引用
-SPC c D on "dictFind"
-
-;; 4. 分析调用关系
-SPC s i 查看函数列表
-
-;; 5. 使用 GPTel 分析代码
-M-x gptel
-选中代码区域，C-c < 发送给 AI
+# 3. 连接到 Emacs
+emacsclient -c
 ```
 
-#### 快速导航技巧：
-1. **跳转定义**：`SPC c d` - 理解函数实现
-2. **查找引用**：`SPC c D` - 了解使用场景
-3. **重命名**：`SPC c r` - 安全重构
-4. **格式化**：`SPC c f` - 保持代码整洁
-5. **错误检查**：`SPC c e` - 快速定位问题
+#### 代码分析流程
+```elisp
+;; 1. 打开项目文件
+SPC p p 选择项目
+SPC p f src/main.c
+
+;; 2. 深入理解代码
+SPC c d   ; 跳转到定义
+SPC c D   ; 查找所有引用
+SPC s i   ; 查看符号列表
+
+;; 3. AI 辅助分析
+M-x gptel
+选中代码，C-c < 发送给 AI
+
+;; 4. 应用修改
+SPC c r   ; 重命名符号
+SPC c f   ; 格式化代码
+SPC f s   ; 保存所有文件
+```
+
+#### 问题调试流程
+```bash
+# 1. 编译并捕获错误
+cd ~/code/my-project
+make 2>&1 | tee /tmp/build.log
+
+# 2. 发送错误到 AI 分析
+tci to-gptel -30
+
+# 3. 在 Emacs 中修复
+doombridge open-file src/error.c 42
+# 根据 GPTel 建议编辑
+
+doombridge save-all
+```
 
 ## 🤖 GPTel AI聊天集成
 
@@ -600,11 +603,19 @@ doombridge check-updates
 
 ## 📚 扩展资源
 
-### 完整快捷键速查表
-详细的快捷键说明请查看：[references/doom-cheatsheet.md](references/doom-cheatsheet.md)
+### 配置示例文件
+
+| 文件 | 用途 |
+|------|------|
+| [references/gptel-config.el](references/gptel-config.el) | GPTel AI 聊天完整配置 |
+| [references/lsp-cybrid.el](references/lsp-cybrid.el) | Cybrid LSP 优化配置 |
+| [references/keybindings.el](references/keybindings.el) | 自定义快捷键配置 |
+| [references/tmux-integration.el](references/tmux-integration.el) | tmux 集成配置 |
+| [references/doom-cheatsheet.md](references/doom-cheatsheet.md) | 完整快捷键速查表 |
+| [references/module-structure.md](references/module-structure.md) | 模块化结构参考 |
 
 ### 学习路径建议
-1. **第一周**: 掌握核心快捷键（SPC c d/D, SPC f f, SPC b b）
+1. **第一周**: 掌握核心快捷键（`SPC c d/D`, `SPC f f`, `SPC b b`）
 2. **第二周**: 学习 LSP 和代码分析功能
 3. **第三周**: 集成 GPTel AI 辅助编程
 4. **第四周**: 自定义配置和工作流优化
@@ -613,6 +624,7 @@ doombridge check-updates
 - [Doom Emacs GitHub](https://github.com/doomemacs/doomemacs)
 - [Doom Emacs Discord](https://discord.gg/doomemacs)
 - [OpenClaw 社区](https://discord.com/invite/clawd)
+- [Cybrid Systems](https://github.com/cybrid-systems)
 
 ## 🎉 开始使用
 
