@@ -475,4 +475,36 @@ check_tool "gptel2tmux"
 check_tool "tci"
 check_tool "doombridge"
 
-# 检查Emacs
+# 检查Emacs daemon状态
+echo -e "${GREEN}🔧 检查Emacs daemon...${NC}"
+if emacsclient -e "(message \"test\")" >/dev/null 2>&1; then
+    echo -e "  ✅ Emacs daemon正在运行"
+else
+    echo -e "  ℹ️  Emacs daemon未运行，可以运行: emacs --daemon"
+fi
+
+# 显示完成信息
+echo -e "${YELLOW}========================================${NC}"
+echo -e "${BLUE}🎉 安装完成！${NC}"
+echo -e "${GREEN}✨ 所有组件已成功安装${NC}"
+echo ""
+echo "📚 下一步："
+echo "1. 查看完整文档: $SKILL_DIR/SKILL.md"
+echo "2. 学习快捷键: $SKILL_DIR/references/doom-cheatsheet.md"
+echo "3. 运行示例工作流: $EXAMPLES_DIR/"
+echo "4. 配置团队环境: $TEAM_DIR/"
+echo ""
+echo "🚀 快速开始："
+echo "• 启动daemon: emacs --daemon"
+echo "• 连接到Emacs: emacsclient -c"
+echo "• 核心快捷键: SPC c d (定义), SPC c D (引用)"
+echo "• AI辅助: M-x gptel"
+echo "• 帮助: SPC h k"
+echo ""
+echo "💡 提示：按 SPC h k 可以查看任何按键的绑定说明！"
+echo ""
+
+# 运行安装后提示
+if [ -f "$SCRIPT_DIR/post-install-tips.sh" ]; then
+    "$SCRIPT_DIR/post-install-tips.sh"
+fi

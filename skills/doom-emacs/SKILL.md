@@ -51,6 +51,116 @@ tci help
 tmux2gptel --help
 ```
 
+## ⌨️ Doom Emacs 核心快捷键（Leader 键速查）
+
+Doom Emacs 使用 **SPC**（空格键）作为 Leader 键，所有常用操作都以 `SPC + 字母` 触发。
+
+### 💻 代码操作（最常用） `SPC c`
+
+| 快捷键 | 功能 | 对应命令 |
+|--------------|-------------------------------|------------------------------|
+| `SPC c d` | 跳转到定义（Definition） | `lsp-find-definition` / `xref-find-definitions` |
+| **`SPC c D`** | **查找引用（References）** | `lsp-find-references` / `xref-find-references` |
+| `SPC c a` | 代码动作（Code Actions） | `lsp-execute-code-action` |
+| `SPC c r` | 重命名符号 | `lsp-rename` |
+| `SPC c f` | 格式化当前文件/选中区域 | `lsp-format-buffer` |
+| `SPC c e` | 列出错误/诊断 | `flycheck-list-errors` |
+| `SPC c l` | LSP 专属菜单 | `lsp-command-map` |
+| `SPC c h` | 查看文档（Hover） | `lsp-ui-doc-glance` |
+| `SPC c i` | 查看实现（Implementations） | `lsp-find-implementation` |
+
+### 📁 文件 / 项目操作 `SPC p` / `SPC f`
+
+| 快捷键 | 功能 |
+|------------|--------------------------|
+| `SPC p p` | 切换项目 |
+| `SPC p f` | 在项目中查找文件 |
+| `SPC p s` | 在项目中搜索文本 |
+| `SPC f f` | 查找文件（当前目录） |
+| `SPC f r` | 最近打开的文件 |
+| `SPC f s` | 保存文件 |
+| `SPC f S` | 保存所有文件 |
+| `SPC f y` | 复制文件路径 |
+
+### 🔍 搜索 / 跳转 `SPC s`
+
+| 快捷键 | 功能 |
+|------------|--------------------------|
+| `SPC s s` | 全文搜索（ripgrep） |
+| `SPC s d` | 在当前目录搜索 |
+| `SPC s p` | 在项目中搜索 |
+| `SPC s i` | 跳转到符号（imenu） |
+| `SPC s j` | 跳转到行 |
+| `SPC s /` | 搜索当前缓冲区 |
+
+### 🪟 窗口 / 缓冲区管理 `SPC w` / `SPC b`
+
+| 快捷键 | 功能 |
+|------------|--------------------------|
+| `SPC w h/j/k/l` | 向左/下/上/右移动窗口 |
+| `SPC w H/J/K/L` | 移动窗口位置 |
+| `SPC w =` | 均衡窗口大小 |
+| `SPC w d` | 删除窗口 |
+| `SPC w o` | 最大化窗口 |
+| `SPC b b` | 切换缓冲区 |
+| `SPC b d` | 关闭缓冲区 |
+| `SPC b k` | 杀死缓冲区 |
+| `SPC b n` | 下一个缓冲区 |
+| `SPC b p` | 上一个缓冲区 |
+
+### 🤖 GPTel AI 快捷键（本 Skill 增强）
+
+| 快捷键 | 功能 |
+|------------------|-------------------------------|
+| `M-x gptel` | 打开/切换 GPTel 聊天窗口 |
+| `C-c <` | 在代码中选中区域后发送给 AI |
+| `C-c >` | 将 AI 回答插入当前缓冲区 |
+| `SPC g g` | （推荐自定义）全局 GPTel 菜单 |
+
+### 🆘 帮助系统 `SPC h`
+
+| 快捷键 | 功能 |
+|------------|--------------------------|
+| `SPC h k` | 查看按键绑定（按任意键查看说明） |
+| `SPC h f` | 查看函数文档 |
+| `SPC h v` | 查看变量文档 |
+| `SPC h m` | 查看当前模式文档 |
+| `SPC h d` | 搜索文档 |
+
+> 💡 **提示**：
+> 1. 按 `SPC h k` 后按任意键，可以实时查看该键的绑定说明（Doom 内置帮助）
+> 2. 使用 `M-x` 后输入命令名可以执行任何 Emacs 命令
+> 3. `C-g` 取消当前操作，`C-x C-c` 保存并退出
+> 4. 所有快捷键都可以在 `~/.doom.d/config.el` 中自定义
+
+### 🎯 开发工作流示例
+
+#### Redis 代码分析工作流：
+```elisp
+;; 1. 打开文件
+SPC f f ~/code/redis/src/dict.c
+
+;; 2. 跳转到 dictFind 函数定义
+SPC c d on "dictFind"
+
+;; 3. 查找所有引用
+SPC c D on "dictFind"
+
+;; 4. 分析调用关系
+SPC s i 查看函数列表
+
+;; 5. 使用 GPTel 分析代码
+M-x gptel
+选中代码区域，C-c < 发送给 AI
+```
+
+#### 快速导航技巧：
+1. **跳转定义**：`SPC c d` - 理解函数实现
+2. **查找引用**：`SPC c D` - 了解使用场景
+3. **重命名**：`SPC c r` - 安全重构
+4. **格式化**：`SPC c f` - 保持代码整洁
+5. **错误检查**：`SPC c e` - 快速定位问题
+
 ## 🤖 GPTel AI聊天集成
 
 ### 基础配置
@@ -488,6 +598,22 @@ git pull origin main
 doombridge check-updates
 ```
 
+## 📚 扩展资源
+
+### 完整快捷键速查表
+详细的快捷键说明请查看：[references/doom-cheatsheet.md](references/doom-cheatsheet.md)
+
+### 学习路径建议
+1. **第一周**: 掌握核心快捷键（SPC c d/D, SPC f f, SPC b b）
+2. **第二周**: 学习 LSP 和代码分析功能
+3. **第三周**: 集成 GPTel AI 辅助编程
+4. **第四周**: 自定义配置和工作流优化
+
+### 社区支持
+- [Doom Emacs GitHub](https://github.com/doomemacs/doomemacs)
+- [Doom Emacs Discord](https://discord.gg/doomemacs)
+- [OpenClaw 社区](https://discord.com/invite/clawd)
+
 ## 🎉 开始使用
 
 选择适合你的工作流：
@@ -498,3 +624,5 @@ doombridge check-updates
 4. **自定义配置**：修改`references/`中的示例
 
 现在你拥有了完整的Doom Emacs开发环境，集成了AI辅助编程、语言服务器、终端集成和自动化工具链！🚀
+
+> 💡 **提示**: 按 `SPC h k` 可以随时查看任何按键的绑定说明，这是学习 Doom Emacs 的最佳方式！
