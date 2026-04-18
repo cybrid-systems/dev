@@ -1,7 +1,7 @@
 ---
 name: doom-lsp
 description: 让 OpenClaw 直接使用 Doom Emacs 的 LSP 能力（定义跳转、诊断、补全、hover、rename 等）
-version: 1.0.0
+version: 2.0.0
 author: Grok-assisted
 tags: [emacs, doom, lsp, coding-agent, ide]
 ---
@@ -18,20 +18,28 @@ tags: [emacs, doom, lsp, coding-agent, ide]
 
 ## 核心命令（OpenClaw 可直接执行）
 
-所有命令都通过一个极简 bridge 脚本实现：
+所有命令都通过优化的 bridge 脚本实现：
 
 ```bash
 # 安装后可用命令（放在 PATH 或用完整路径）
-doom-lsp help
-doom-lsp health-check                    # 检查环境状态
-doom-lsp open-file <文件> [行] [列]      # 打开文件到指定位置
-doom-lsp goto-symbol <文件> <符号>       # 找到符号的精确位置（行:列）
-doom-lsp find-def <文件> <符号>          # 跳转到符号定义
-doom-lsp find-ref <文件> <符号>          # 查找符号引用
-doom-lsp hover <文件> <行> <列>          # 显示悬停信息
-doom-lsp rename <文件> <行> <列> <新名>  # 重命名符号
-doom-lsp diagnostics <文件>              # 查看诊断信息
+doom-lsp help                           # 查看帮助
+doom-lsp version                        # 显示版本信息
+doom-lsp health-check                   # 检查环境状态
+doom-lsp open-file <文件> [行] [列]     # 打开文件到指定位置
+doom-lsp find-symbol <文件> <符号>      # 查找符号位置（输出: 行:列）
+doom-lsp find-def <文件> <符号>         # 跳转到符号定义
+doom-lsp find-ref <文件> <符号>         # 查找符号引用
+doom-lsp hover <文件> <行> <列>         # 显示悬停信息
+doom-lsp rename <文件> <行> <列> <新名> # 重命名符号
+doom-lsp diagnostics <文件>             # 查看简单诊断
+doom-lsp list-functions <文件>          # 列出文件中的函数
 ```
+
+### 新功能亮点
+- **彩色输出**: 更好的可读性
+- **错误检查**: 自动检查文件和 daemon 状态
+- **智能搜索**: 改进的符号查找
+- **实用工具**: `list-functions` 快速查看文件结构
 
 ## OpenClaw 工作流示例
 
@@ -39,35 +47,48 @@ doom-lsp diagnostics <文件>              # 查看诊断信息
 
 ```bash
 # 找到符号的精确位置
-doom-lsp goto-symbol src/main.py "calculate_sum"
-# 输出: "15:8" (第15行第8列)
+doom-lsp find-symbol src/server.c "initServer"
+# 输出: "1882:15" (第1882行第15列)
 
 # 打开文件到该位置
-doom-lsp open-file src/main.py 15 8
+doom-lsp open-file src/server.c 1882 15
 
 # 跳转到定义
-doom-lsp find-def src/main.py "calculate_sum"
+doom-lsp find-def src/server.c "initServer"
 ```
 
 ### 示例 2：智能重构工作流
 
 ```bash
 # 1. 找到要重命名的变量
-doom-lsp goto-symbol src/utils.py "old_variable"
-# 输出: "42:12"
+doom-lsp find-symbol src/dict.c "dictType"
+# 输出: "86:8"
 
 # 2. 重命名变量
-doom-lsp rename src/utils.py 42 12 "new_variable"
+doom-lsp rename src/dict.c 86 8 "new_dict_type"
 
 # 3. 验证所有引用已更新
-doom-lsp find-ref src/utils.py "new_variable"
+doom-lsp find-ref src/dict.c "new_dict_type"
 ```
 
-### 示例 3：完整开发循环（推荐）
-1. `doom-lsp open-file <file>` → 让 Emacs 打开文件并启动 LSP
-2. `doom-lsp diagnostics <file>` → 获取当前错误/警告
-3. 根据诊断信息编辑代码
-4. 保存后 `doom-lsp open-file <file>` 刷新 LSP
+### 示例 3：Redis 开发工作流
+
+```bash
+# 1. 查看文件结构
+doom-lsp list-functions src/server.c | head -10
+
+# 2. 打开关键函数
+doom-lsp open-file src/server.c 1882 1  # initServer
+
+# 3. 跳转到相关定义
+doom-lsp find-def src/server.c "aeCreateEventLoop"
+
+# 4. 检查诊断
+doom-lsp diagnostics src/server.c
+
+# 5. 理解调用关系
+doom-lsp find-ref src/server.c "redisServer"
+```
 
 ## 安装步骤（给 OpenClaw 读的）
 
@@ -85,7 +106,7 @@ doom-lsp find-ref src/utils.py "new_variable"
 
 ## Bridge 脚本实现（scripts/doom-lsp-bridge.sh）
 
-极简脚本（只用 emacsclient + lsp-mode 函数），不需要额外依赖。
+优化版脚本，包含彩色输出、错误检查和实用功能。
 
 ```bash
 #!/bin/bash
