@@ -1,6 +1,5 @@
 #!/bin/bash
-# doom-lsp-simple-final.sh - 最简单直接的实现
-# 回归本质，保持简单
+# doom-lsp-refs-fixed.sh - 真正修复的 find-refs 版本
 
 EMACSCLIENT="emacsclient -a ''"
 
@@ -66,15 +65,35 @@ case "$1" in
         FILE="$2"
         SYMBOL="$3"
         echo "[INFO] find-refs (SPC c D) for $SYMBOL"
-        # 异步执行，不等待结果
-        $EMACSCLIENT -e "(progn 
-            (find-file \"$FILE\") 
-            (lsp) 
-            (goto-char (point-min)) 
-            (when (re-search-forward (regexp-quote \"$SYMBOL\") nil t)
-              (lsp-find-references)
-              (message \"find-refs 执行完成\")))" >/dev/null 2>&1 &
-        echo "[SUCCESS] find-refs 已触发（LSP 异步处理）"
+        
+        # 方法：使用 xref 系统并尝试捕获结果
+        timeout 15s $EMACSCLIENT --eval "
+        (progn
+          (require 'xref)
+          (find-file \"$FILE\")
+          (lsp)
+          (goto-char (point-min))
+          (if (re-search-forward (regexp-quote \"$SYMBOL\") nil t)
+              (progn
+                ;; 执行引用查找
+                (xref-find-references \"$SYMBOL\")
+                (sit-for 0.5)  ; 等待结果
+                
+                ;; 尝试获取 xref buffer 内容
+                (let ((xref-buffer (get-buffer \"*xref*\")))
+                  (if xref-buffer
+                      (with-current-buffer xref-buffer
+                        (princ \"[SUCCESS] 引用查找完成，结果在 *xref* buffer\\n\")
+                        (princ \"=== XREF BUFFER CONTENT ===\\n\")
+                        (princ (buffer-string))
+                        (princ \"=== END ===\\n\"))
+                    (princ \"[INFO] 引用查找已触发，请查看 Emacs\\n\"))))
+            (princ \"[ERROR] 符号 $SYMBOL 未找到\\n\")))" 2>&1 | \
+            grep -v "^\"" | grep -v "^t$" | grep -v "^nil$" | head -50
+        
+        if [ $? -eq 124 ]; then
+            echo "[WARNING] find-refs 超时"
+        fi
         ;;
         
     hover)
@@ -91,21 +110,25 @@ case "$1" in
         ;;
         
     help|--help|-h)
-        echo "doom-lsp - 最简单直接的实现"
+        echo "doom-lsp - 引用查找修复版本"
         echo ""
         echo "用法:"
         echo "  doom-lsp health-check                    # 健康检查"
         echo "  doom-lsp setup-project <项目路径>        # 设置项目"
         echo "  doom-lsp open-file <文件> [行] [列]     # 打开文件"
         echo "  doom-lsp find-def <文件> <符号>         # 查找定义"
-        echo "  doom-lsp find-refs <文件> <符号>        # 查找引用"
+        echo "  doom-lsp find-refs <文件> <符号>        # 查找引用（改进版）"
         echo "  doom-lsp hover <文件> [行] [列]         # 显示 hover 信息"
         echo ""
-        echo "设计哲学:"
-        echo "  • 保持简单直接"
-        echo "  • bash 输出日志，elisp 执行操作"
-        echo "  • 避免过度设计"
-        echo "  • 实际可用优先"
+        echo "find-refs 改进:"
+        echo "  • 尝试捕获 xref buffer 内容"
+        echo "  • 显示引用查找状态"
+        echo "  • 提供实际可用的反馈"
+        echo ""
+        echo "注意:"
+        echo "  • find-refs 结果可能需要在 Emacs 中查看"
+        echo "  • 大项目需要索引时间"
+        echo "  • find-def 仍然是最可靠的功能"
         ;;
         
     *)

@@ -1,6 +1,5 @@
 #!/bin/bash
-# doom-lsp-simple-final.sh - 最简单直接的实现
-# 回归本质，保持简单
+# doom-lsp-final-refs.sh - 最终修复的 find-refs 版本
 
 EMACSCLIENT="emacsclient -a ''"
 
@@ -66,15 +65,40 @@ case "$1" in
         FILE="$2"
         SYMBOL="$3"
         echo "[INFO] find-refs (SPC c D) for $SYMBOL"
-        # 异步执行，不等待结果
-        $EMACSCLIENT -e "(progn 
-            (find-file \"$FILE\") 
-            (lsp) 
-            (goto-char (point-min)) 
-            (when (re-search-forward (regexp-quote \"$SYMBOL\") nil t)
-              (lsp-find-references)
-              (message \"find-refs 执行完成\")))" >/dev/null 2>&1 &
-        echo "[SUCCESS] find-refs 已触发（LSP 异步处理）"
+        
+        # 实际可用的 find-refs 实现
+        timeout 20s $EMACSCLIENT --eval "
+        (progn
+          (find-file \"$FILE\")
+          (lsp)
+          (goto-char (point-min))
+          (if (re-search-forward (regexp-quote \"$SYMBOL\") nil t)
+              (progn
+                ;; 清除旧的 xref buffer
+                (when (get-buffer \"*xref*\")
+                  (kill-buffer \"*xref*\"))
+                
+                ;; 执行引用查找
+                (lsp-find-references)
+                
+                ;; 等待并获取结果
+                (sit-for 1)
+                
+                (let ((xref-buffer (get-buffer \"*xref*\")))
+                  (if xref-buffer
+                      (with-current-buffer xref-buffer
+                        (princ \"[SUCCESS] 找到引用，结果如下:\\n\")
+                        (princ \"================================\\n\")
+                        (princ (buffer-string))
+                        (princ \"================================\\n\")
+                        (kill-buffer \"*xref*\"))  ; 清理 buffer
+                    (princ \"[INFO] 引用查找已执行，但未生成结果 buffer\\n\"))))
+            (princ \"[ERROR] 符号 $SYMBOL 未找到\\n\")))" 2>&1 | \
+            grep -v "^\"" | grep -v "^t$" | grep -v "^nil$" | head -100
+        
+        if [ $? -eq 124 ]; then
+            echo "[WARNING] find-refs 超时（可能需要更多时间）"
+        fi
         ;;
         
     hover)
@@ -91,21 +115,26 @@ case "$1" in
         ;;
         
     help|--help|-h)
-        echo "doom-lsp - 最简单直接的实现"
+        echo "doom-lsp - 最终修复的引用查找版本"
         echo ""
         echo "用法:"
         echo "  doom-lsp health-check                    # 健康检查"
         echo "  doom-lsp setup-project <项目路径>        # 设置项目"
         echo "  doom-lsp open-file <文件> [行] [列]     # 打开文件"
         echo "  doom-lsp find-def <文件> <符号>         # 查找定义"
-        echo "  doom-lsp find-refs <文件> <符号>        # 查找引用"
+        echo "  doom-lsp find-refs <文件> <符号>        # 查找引用（已修复）"
         echo "  doom-lsp hover <文件> [行] [列]         # 显示 hover 信息"
         echo ""
-        echo "设计哲学:"
-        echo "  • 保持简单直接"
-        echo "  • bash 输出日志，elisp 执行操作"
-        echo "  • 避免过度设计"
-        echo "  • 实际可用优先"
+        echo "find-refs 修复内容:"
+        echo "  • 使用 lsp-find-references 触发引用查找"
+        echo "  • 捕获 *xref* buffer 内容并返回"
+        echo "  • 清理使用后的 buffer"
+        echo "  • 添加适当的等待时间"
+        echo ""
+        echo "注意:"
+        echo "  • 首次使用可能需要索引时间"
+        echo "  • 大项目（如 Redis）需要更多时间"
+        echo "  • 结果直接显示在命令行"
         ;;
         
     *)
