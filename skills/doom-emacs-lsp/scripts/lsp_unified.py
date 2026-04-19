@@ -172,6 +172,34 @@ class LSPClient:
             "command": ["gopls"],
             "init_options": {},
             "settings": {}
+        },
+        "c": {
+            "command": ["clangd", "--background-index", "--compile-commands-dir=.", "--log=error"],
+            "init_options": {},
+            "settings": {
+                "clangd": {
+                    "completion": {
+                        "detailedLabel": True
+                    },
+                    "diagnostics": {
+                        "delay": 500
+                    }
+                }
+            }
+        },
+        "cpp": {
+            "command": ["clangd", "--background-index", "--compile-commands-dir=.", "--log=error"],
+            "init_options": {},
+            "settings": {
+                "clangd": {
+                    "completion": {
+                        "detailedLabel": True
+                    },
+                    "diagnostics": {
+                        "delay": 500
+                    }
+                }
+            }
         }
     }
     
@@ -598,6 +626,17 @@ def create_lsp_client(project_path: Optional[str] = None,
             language = "rust"
         elif os.path.exists(os.path.join(project_path, "go.mod")):
             language = "go"
+        elif os.path.exists(os.path.join(project_path, "Makefile")) or \
+             os.path.exists(os.path.join(project_path, "CMakeLists.txt")) or \
+             os.path.exists(os.path.join(project_path, "configure.ac")) or \
+             os.path.exists(os.path.join(project_path, "configure.in")):
+            # C/C++ 项目检测
+            # 检查是否有 .c 或 .cpp 文件
+            c_files = list(Path(project_path).glob("**/*.c")) + list(Path(project_path).glob("**/*.cpp"))
+            if c_files:
+                language = "c"  # 默认使用 C 配置
+            else:
+                language = "cpp"
         else:
             language = "python"  # Default fallback
     
