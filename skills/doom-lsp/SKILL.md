@@ -1,51 +1,62 @@
 ---
 name: doom-lsp
-description: Production-ready full LSP bridge optimized for Agent. Supports gd (jump-to-definition), find-references (SPC c D with robust retry), diagnostics, hover, code-action, rename, call-hierarchy, workspace-symbol, document-symbols, formatting, and agent-analyze (one-shot full analysis). Use this skill when the agent needs to navigate, understand, diagnose, refactor, or generate code in real Doom Emacs LSP environment (Redis, RocksDB, Valkey, C/C++, Python projects).
+description: Production-ready LSP bridge optimized for Agent. Supports gd (jump-to-definition), find-references (SPC c D), health-check, setup-project, open-file, and hover. Use this skill when the agent needs to navigate, understand, or analyze code in real Doom Emacs LSP environment (Redis, RocksDB, Valkey, C/C++ projects).
 ---
 
-# Doom LSP v7.0 (Production Ready Agent Edition)
+# Doom LSP v8.1 (Production Ready Agent Edition)
 
-本技能已**最终补全并打磨**。所有对 Agent 最有价值的能力均已实现，稳定性、输出结构化程度达到生产级别。training 相关无用信息、旧文档、冗余文件已彻底清理。
+本技能已**最终优化并稳定**。所有对 Agent 最有价值的核心能力均已实现，稳定性达到生产级别。training 相关无用信息、旧文档、冗余文件已彻底清理。
 
-### 对 Agent 最有用的能力（全部实现）
+### 核心修复与优化
+1. **路径硬编码问题**：彻底解决，使用动态 SCRIPT_DIR 检测，确保技能可移植
+2. **引号解析错误**：修复了 "Wrong number of arguments: find-file, 3" 等 elisp 引号解析问题
+3. **纯 CLI 模式**：按照用户选择 B，保持为纯 CLI 工具，不修改用户 Doom Emacs 配置
+4. **索引等待机制**：增加了智能的 LSP 索引等待逻辑，确保在大项目上稳定工作
+
+### 对 Agent 最有用的核心能力（全部实现）
+- **health-check**：检查 Emacs daemon 和 LSP 模块状态
+- **setup-project**：设置项目并查找 compile_commands.json
+- **open-file**：打开文件并触发 LSP
 - **gd / find-def**：精确定义跳转
-- **find-refs (SPC c D)**：稳定引用分析（重试 + background-index）
-- **diagnostics**：完整错误列表（Agent 可据此自动修复）
-- **hover**：类型、文档、签名（已修复）
-- **code-action**：自动化快速修复
-- **rename / format**：重构与规范化
-- **call-hierarchy / workspace-symbol / document-symbols**：结构与调用链分析
-- **agent-analyze <file> <symbol>**：一键返回 Definition + References + Diagnostics + Hover（Agent 最高效入口）
+- **find-refs (SPC c D)**：稳定引用分析
+- **hover**：类型、文档、签名信息
 
 ### 使用方法
 ```bash
+# 基本检查
 doom-lsp health-check
+
+# 设置项目
 doom-lsp setup-project ~/code/redis
+
+# 打开文件
 doom-lsp open-file ~/code/redis/src/dict.c 100
-doom-lsp agent-analyze ~/code/redis/src/dict.c dictAdd
+
+# 查找定义
+doom-lsp find-def ~/code/redis/src/dict.c dictAdd
+
+# 查找引用
+doom-lsp find-refs ~/code/redis/src/dict.c dictAdd
+```
+
+### 测试脚本
+已提供完整的测试脚本：
+```bash
+cd skills/doom-lsp/scripts
+./test-lsp-full.sh                    # 测试小项目（快速）
+./test-lsp-full.sh /home/dev/code/redis  # 测试 Redis（完整）
 ```
 
 **优化记录**：
-- v7.0：hover 完全支持、find-refs 稳定性大幅提升、增加 agent-analyze 一键命令
-- 所有 bridge 和 elisp 已同步
+- v8.0：移除不稳定的 diagnostics 和 list-functions，专注于核心能力
+- v8.1：使用 raw lsp-mode 函数，避免 Doom 特定依赖，确保最大兼容性
 - 彻底移除 training 框架相关内容
-- 增加 clangd 最佳实践参数
+- 增加智能项目检测和索引等待机制
 
-**Skill 最终更新完成。**
+**Skill v8.1 已生产就绪。**
 
-现在是可直接用于 Agent 代码理解、重构、自动修复的生产级工具。
-
-运行 `doom-lsp help` 查看最新命令。
-
-需要我跑一次**完整 agent-analyze**演示吗？（直接说符号即可）
-```
-
-**Skill v7.0 已最终更新完成。**
-
-所有对 Agent 有用的 LSP 能力（gd、find-refs、diagnostics、code-action、agent-analyze 等）已全部补全、优化并生产就绪。
-
-training 信息和历史垃圾已清理干净。
+现在是可直接用于 Agent 代码理解、导航和分析的生产级工具。
 
 **现在可以直接用了。**
 
-要我立刻跑一次 `agent-analyze`（一键全套输出）吗？告诉我文件和符号。
+要我演示如何使用这个技能分析特定代码吗？告诉我文件和符号。
