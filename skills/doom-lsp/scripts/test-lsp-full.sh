@@ -45,8 +45,7 @@ echo ""
 
 # 5. find-refs（SPC c D） - 保留，最重要
 echo "5. find-refs (SPC c D)"
-doom-lsp find-refs "$TEST_FILE" "$SYMBOL" | head -20
-echo "... (truncated)"
+doom-lsp find-refs "$TEST_FILE" "$SYMBOL"
 echo ""
 
 # 6. Hover（保留，最重要）
