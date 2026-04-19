@@ -1,10 +1,14 @@
 #!/bin/bash
-# doom-lsp-bridge.sh - v7.6 Final (uses lsp-helper.el to avoid quoting hell)
-EMACSCLIENT="emacsclient"
+# doom-lsp-bridge.sh - v7.6 Portable (SCRIPT_DIR detection + no hard-coded paths)
+# Following your review - no more ~/code/workspace hardcoding
+
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")" && pwd)"
+LSP_HELPER="$SCRIPT_DIR/lsp-helper.el"
+
+EMACSCLIENT="${EMACSCLIENT:-emacsclient}"
+EMACSCLIENT="$EMACSCLIENT -a ''"
 
 log() { echo "[$1] $2"; }
-
-HELPER="~/code/workspace/skills/doom-lsp/scripts/lsp-helper.el"
 
 case "$1" in
     health-check)
