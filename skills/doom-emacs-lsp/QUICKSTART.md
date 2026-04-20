@@ -1,12 +1,37 @@
 # Doom Emacs LSP Skill - Quick Start
 
+## ⚠️ IMPORTANT: C/C++ Projects Require compile_commands.json
+
+**For C/C++ projects (like Redis), you MUST generate `compile_commands.json` before using LSP features:**
+
+```bash
+# Install bear if not already installed
+sudo apt-get install bear  # Ubuntu/Debian
+brew install bear          # macOS
+
+# Clean and rebuild with bear to capture compile commands
+cd /path/to/c-project
+make clean
+bear -- make -j$(nproc)    # Use parallel compilation for speed
+
+# Verify compile_commands.json was generated
+ls -la compile_commands.json
+jq length compile_commands.json  # Should show number of compile commands
+```
+
+**Why this is essential:**
+- `compile_commands.json` tells clangd how your project is built
+- Without it, clangd cannot understand include paths, macros, or compiler flags
+- Bear captures the actual compile commands during the build process
+- Parallel compilation (`-j`) significantly speeds up the process
+
 ## What This Skill Does
 
 This skill provides a unified, agent-friendly interface to Language Server Protocol (LSP) capabilities, inspired by Doom Emacs' LSP integration. It enables efficient code navigation and analysis across multiple programming languages while minimizing token usage.
 
 ## Core Features
 
-1. **Unified LSP Interface**: Consistent API across Python, TypeScript, JavaScript, Go, Rust, and more
+1. **Unified LSP Interface**: Consistent API across Python, TypeScript, JavaScript, Go, Rust, C, C++, and more
 2. **Token Efficiency**: Built-in caching, batching, and compression to minimize token usage
 3. **Doom Emacs Emulation**: Simulate Doom Emacs LSP commands and workflows
 4. **Agent-Friendly Design**: Simple APIs designed for AI agent usage

@@ -529,6 +529,285 @@ class LSPClient:
                 error=str(e)
             )
     
+    def completion(self, file: str, line: int, character: int, 
+                  trigger_char: Optional[str] = None) -> LSPResponse:
+        """
+        Get code completion suggestions at a position.
+        
+        Args:
+            file: File path
+            line: Line number (0-based)
+            character: Character position (0-based)
+            trigger_char: Optional trigger character
+        
+        Returns:
+            LSPResponse with completion items
+        """
+        if self.cache and self.use_cache:
+            cache_key = {
+                "method": "textDocument/completion",
+                "params": {
+                    "textDocument": {"uri": f"file://{os.path.abspath(file)}"},
+                    "position": {"line": line, "character": character},
+                    "context": {"triggerCharacter": trigger_char} if trigger_char else {}
+                }
+            }
+            cached = self.cache.get("textDocument/completion", cache_key["params"])
+            if cached:
+                return LSPResponse(
+                    success=True,
+                    data=cached,
+                    tokens_used=0,
+                    cached=True
+                )
+        
+        try:
+            params = {
+                "textDocument": {
+                    "uri": f"file://{os.path.abspath(file)}"
+                },
+                "position": {
+                    "line": line,
+                    "character": character
+                }
+            }
+            
+            if trigger_char:
+                params["context"] = {"triggerCharacter": trigger_char}
+            
+            response = self._send_request("textDocument/completion", params)
+            
+            if "result" in response and response["result"]:
+                result = response["result"]
+                
+                # Cache the result
+                if self.cache and self.use_cache:
+                    self.cache.set("textDocument/completion", params, result)
+                
+                # Process completion items
+                items = []
+                if isinstance(result, list):
+                    items = result
+                elif isinstance(result, dict) and "items" in result:
+                    items = result["items"]
+                
+                return LSPResponse(
+                    success=True,
+                    data={
+                        "items": items,
+                        "isIncomplete": result.get("isIncomplete", False) if isinstance(result, dict) else False
+                    },
+                    tokens_used=len(str(result))
+                )
+            
+            return LSPResponse(
+                success=True,
+                data={"items": [], "isIncomplete": False},
+                tokens_used=0
+            )
+            
+        except Exception as e:
+            return LSPResponse(
+                success=False,
+                data=None,
+                error=str(e)
+            )
+    
+    def signature_help(self, file: str, line: int, character: int,
+                      trigger_char: Optional[str] = None) -> LSPResponse:
+        """
+        Get signature help (function/method signatures) at a position.
+        
+        Args:
+            file: File path
+            line: Line number (0-based)
+            character: Character position (0-based)
+            trigger_char: Optional trigger character
+        
+        Returns:
+            LSPResponse with signature help information
+        """
+        if self.cache and self.use_cache:
+            cache_key = {
+                "method": "textDocument/signatureHelp",
+                "params": {
+                    "textDocument": {"uri": f"file://{os.path.abspath(file)}"},
+                    "position": {"line": line, "character": character},
+                    "context": {"triggerCharacter": trigger_char} if trigger_char else {}
+                }
+            }
+            cached = self.cache.get("textDocument/signatureHelp", cache_key["params"])
+            if cached:
+                return LSPResponse(
+                    success=True,
+                    data=cached,
+                    tokens_used=0,
+                    cached=True
+                )
+        
+        try:
+            params = {
+                "textDocument": {
+                    "uri": f"file://{os.path.abspath(file)}"
+                },
+                "position": {
+                    "line": line,
+                    "character": character
+                }
+            }
+            
+            if trigger_char:
+                params["context"] = {"triggerCharacter": trigger_char}
+            
+            response = self._send_request("textDocument/signatureHelp", params)
+            
+            if "result" in response and response["result"]:
+                result = response["result"]
+                
+                # Cache the result
+                if self.cache and self.use_cache:
+                    self.cache.set("textDocument/signatureHelp", params, result)
+                
+                return LSPResponse(
+                    success=True,
+                    data=result,
+                    tokens_used=len(str(result))
+                )
+            
+            return LSPResponse(
+                success=True,
+                data=None,
+                tokens_used=0
+            )
+            
+        except Exception as e:
+            return LSPResponse(
+                success=False,
+                data=None,
+                error=str(e)
+            )
+    
+    def workspace_symbol(self, query: str = "", max_results: int = 100) -> LSPResponse:
+        """
+        Search for symbols in the entire workspace.
+        
+        Args:
+            query: Search query string (empty for all symbols)
+            max_results: Maximum number of results to return
+        
+        Returns:
+            LSPResponse with workspace symbols
+        """
+        if self.cache and self.use_cache:
+            cache_key = {
+                "method": "workspace/symbol",
+                "params": {"query": query}
+            }
+            cached = self.cache.get("workspace/symbol", cache_key["params"])
+            if cached:
+                return LSPResponse(
+                    success=True,
+                    data=cached,
+                    tokens_used=0,
+                    cached=True
+                )
+        
+        try:
+            params = {}
+            if query:
+                params["query"] = query
+            
+            response = self._send_request("workspace/symbol", params)
+            
+            if "result" in response and response["result"]:
+                result = response["result"]
+                
+                # Limit results if needed
+                if isinstance(result, list) and len(result) > max_results:
+                    result = result[:max_results]
+                
+                # Cache the result
+                if self.cache and self.use_cache:
+                    self.cache.set("workspace/symbol", params, result)
+                
+                return LSPResponse(
+                    success=True,
+                    data=result,
+                    tokens_used=len(str(result))
+                )
+            
+            return LSPResponse(
+                success=True,
+                data=[],
+                tokens_used=0
+            )
+            
+        except Exception as e:
+            return LSPResponse(
+                success=False,
+                data=None,
+                error=str(e)
+            )
+    
+    def document_symbol(self, file: str) -> LSPResponse:
+        """
+        Get all symbols in a document.
+        
+        Args:
+            file: File path
+        
+        Returns:
+            LSPResponse with document symbols
+        """
+        if self.cache and self.use_cache:
+            cache_key = {
+                "method": "textDocument/documentSymbol",
+                "params": {"textDocument": {"uri": f"file://{os.path.abspath(file)}"}}
+            }
+            cached = self.cache.get("textDocument/documentSymbol", cache_key["params"])
+            if cached:
+                return LSPResponse(
+                    success=True,
+                    data=cached,
+                    tokens_used=0,
+                    cached=True
+                )
+        
+        try:
+            params = {
+                "textDocument": {
+                    "uri": f"file://{os.path.abspath(file)}"
+                }
+            }
+            
+            response = self._send_request("textDocument/documentSymbol", params)
+            
+            if "result" in response and response["result"]:
+                result = response["result"]
+                
+                # Cache the result
+                if self.cache and self.use_cache:
+                    self.cache.set("textDocument/documentSymbol", params, result)
+                
+                return LSPResponse(
+                    success=True,
+                    data=result,
+                    tokens_used=len(str(result))
+                )
+            
+            return LSPResponse(
+                success=True,
+                data=[],
+                tokens_used=0
+            )
+            
+        except Exception as e:
+            return LSPResponse(
+                success=False,
+                data=None,
+                error=str(e)
+            )
+    
     def batch_operations(self, operations: List[Tuple[str, Dict]]) -> Dict[str, LSPResponse]:
         """
         Execute multiple LSP operations in batch for token efficiency.
@@ -558,6 +837,25 @@ class LSPClient:
                 line = params["line"]
                 character = params["character"]
                 results[str(i)] = self.hover(file, line, character)
+            elif method == "completion":
+                file = params["file"]
+                line = params["line"]
+                character = params["character"]
+                trigger_char = params.get("trigger_char")
+                results[str(i)] = self.completion(file, line, character, trigger_char)
+            elif method == "signature_help":
+                file = params["file"]
+                line = params["line"]
+                character = params["character"]
+                trigger_char = params.get("trigger_char")
+                results[str(i)] = self.signature_help(file, line, character, trigger_char)
+            elif method == "workspace_symbol":
+                query = params.get("query", "")
+                max_results = params.get("max_results", 100)
+                results[str(i)] = self.workspace_symbol(query, max_results)
+            elif method == "document_symbol":
+                file = params["file"]
+                results[str(i)] = self.document_symbol(file)
             else:
                 results[str(i)] = LSPResponse(
                     success=False,

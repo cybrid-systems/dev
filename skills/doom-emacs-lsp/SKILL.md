@@ -1,6 +1,15 @@
 ---
 name: doom-emacs-lsp
 description: Unified Language Server Protocol interface for code navigation and analysis, inspired by Doom Emacs LSP capabilities. Provides agent-friendly, token-efficient access to LSP features across multiple programming languages. Use when Codex needs to: (1) Navigate code (go to definition, find references), (2) Analyze code (type information, documentation), (3) Work with multiple programming languages through a consistent interface, (4) Minimize token usage during code analysis tasks, or (5) Simulate Doom Emacs developer workflow for LSP operations.
+version: 1.1.0-ai-workflow
+author: OpenClaw Skill Creator
+tags:
+  - lsp
+  - code-analysis
+  - doom-emacs
+  - agent-tools
+  - ai-workflow
+  - code-navigation
 ---
 
 # Doom Emacs LSP Skill
@@ -43,6 +52,81 @@ references = client.find_references(file="main.py", line=42, character=10)
 - **Signature help** - Function/method signature information
 - **Document symbols** - List symbols in a file
 - **Workspace symbols** - Search symbols across workspace
+
+### Language Support
+
+The skill supports multiple languages through a unified interface:
+
+### Prerequisites for C/C++ Projects
+
+For C/C++ projects, you MUST generate `compile_commands.json` before using LSP features. The method differs between C and C++ projects:
+
+#### For C Projects (like Redis - Makefile based)
+
+**Use bear to capture compile commands:**
+
+```bash
+# 1. Install bear (if not already installed)
+sudo apt-get install bear  # Ubuntu/Debian
+brew install bear          # macOS
+
+# 2. Clean and rebuild with bear to capture compile commands
+cd /path/to/c-project
+make clean
+bear -- make -j$(nproc)    # Use parallel compilation for speed
+
+# 3. Verify compile_commands.json was generated
+ls -la compile_commands.json
+jq length compile_commands.json  # Should show number of compile commands
+```
+
+#### For C++ Projects (CMake based)
+
+**Use CMake's built-in compile commands export (recommended):**
+
+```bash
+# 1. Create build directory
+cd /path/to/cpp-project
+rm -rf build && mkdir build && cd build
+
+# 2. Configure CMake with compile commands export
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+
+# 3. For better performance, use Ninja generator
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja ..
+
+# 4. Optional: Build the project
+cmake --build . -j$(nproc)
+
+# 5. Verify compile_commands.json was generated
+ls -la compile_commands.json
+```
+
+#### Using the provided script (handles both cases)
+
+```bash
+# For C projects (Makefile)
+cd /path/to/c-project
+python3 scripts/generate_compile_commands.py .
+
+# For C++ projects (CMake) - uses CMake option by default
+cd /path/to/cpp-project
+python3 scripts/generate_compile_commands.py . --build-system=cmake
+
+# Force using bear for CMake projects (if needed)
+python3 scripts/generate_compile_commands.py . --build-system=cmake --use-bear
+
+# Disable Ninja generator
+python3 scripts/generate_compile_commands.py . --build-system=cmake --no-ninja
+```
+
+**Why this is essential:**
+- `compile_commands.json` tells clangd how your project is built
+- Without it, clangd cannot understand include paths, macros, or compiler flags
+- **C projects**: Use bear to intercept make commands
+- **C++ projects**: Use CMake's built-in export (more reliable)
+- Parallel compilation (`-j`) significantly speeds up the process
+- Ninja generator is faster than make for CMake projects
 
 ### Language Support
 
