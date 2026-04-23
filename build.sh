@@ -23,7 +23,7 @@ sudo apt-get install -y --no-install-recommends \
     python3-dev python3-pip python3-venv python3-full pipx \
     markdown shellcheck ispell ripgrep fd-find libtool \
     xvfb libgtk2.0-0 libglib2.0-0 libcairo2 libpango-1.0-0 \
-    libpangocairo-1.0-0 libgdk-pixbuf2.0-0 xclip \
+    libpangocairo-1.0-0 libgdk-pixbuf2.0-0 \
     texinfo flex bison libgmp3-dev libmpfr-dev libmpc-dev \
     locales tzdata
 
