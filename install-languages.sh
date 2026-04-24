@@ -3,22 +3,40 @@ set -euo pipefail
 echo "=== 安装语言工具 (NodeJS/Python/Rust/Racket) ==="
 export HOME=/home/dev
 
-# ==================== Node.js (LTS) ====================
-curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
+# ==================== Node.js 24 + npm + pnpm (Docker-safe) ====================
+echo "=== Installing Node.js 24 + pnpm ==="
+
+# Fix certificate issues (the #1 cause of nodesource failures in Docker)
+apt-get update
+apt-get install -y --no-install-recommends ca-certificates curl gnupg
+update-ca-certificates --fresh || true
+
+# Modern NodeSource method (no longer uses the deprecated setup_*.x script)
+mkdir -p /etc/apt/keyrings
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key |
+    gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+
+NODE_MAJOR=24
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" |
+    tee /etc/apt/sources.list.d/nodesource.list
+
+apt-get update
 apt-get install -y nodejs
 
-# === Corepack + pnpm (the part that was failing) ===
-export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+# Verify
+node --version
+npm --version
 
-# Bootstrap corepack (required for system-packaged Node.js)
+# Corepack + pnpm
 npm install -g corepack@latest
-
 corepack enable pnpm
 corepack prepare pnpm@latest --activate
-pnpm setup
 
 # pnpm environment for the dev user
-cat >>~/.zshrc <<'EOF'
+mkdir -p /home/dev/.local/share/pnpm
+chown -R dev:dev /home/dev/.local
+
+cat >>/home/dev/.zshrc <<'EOF'
 
 export PNPM_HOME="/home/dev/.local/share/pnpm"
 export PATH="$PNPM_HOME:$PATH"
@@ -26,7 +44,9 @@ EOF
 
 export PNPM_HOME="/home/dev/.local/share/pnpm"
 export PATH="$PNPM_HOME:$PATH"
-pnpm add -g openclaw@latest
+
+# Optional: install openclaw if you still need it
+pnpm add -g openclaw@latest || echo "openclaw skipped (optional)"
 
 # ==================== Python 工具 ====================
 # 先确保/home/dev/.cache权限（可选，但防止root写问题）
