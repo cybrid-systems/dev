@@ -6,15 +6,24 @@ export HOME=/home/dev
 # ==================== Node.js (LTS) ====================
 curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
 apt-get install -y nodejs
-export COREPACK_ENABLE_DOWNLOAD_PROMPT=0 &&
-    sudo corepack enable pnpm &&
-    sudo corepack prepare pnpm@latest --activate &&
-    pnpm setup &&
-    cat >>~/.zshrc <<'EOF'
+
+# === Corepack + pnpm (the part that was failing) ===
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+
+# Bootstrap corepack (required for system-packaged Node.js)
+npm install -g corepack@latest
+
+corepack enable pnpm
+corepack prepare pnpm@latest --activate
+pnpm setup
+
+# pnpm environment for the dev user
+cat >>~/.zshrc <<'EOF'
 
 export PNPM_HOME="/home/dev/.local/share/pnpm"
 export PATH="$PNPM_HOME:$PATH"
 EOF
+
 export PNPM_HOME="/home/dev/.local/share/pnpm"
 export PATH="$PNPM_HOME:$PATH"
 pnpm add -g openclaw@latest
