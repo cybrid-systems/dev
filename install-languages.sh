@@ -3,47 +3,46 @@ set -euo pipefail
 echo "=== 安装语言工具 (NodeJS/Python/Rust/Racket) ==="
 export HOME=/home/dev
 
-# ==================== Node.js 24 + npm + pnpm (Docker-safe) ====================
-echo "=== Installing Node.js 24 + pnpm ==="
+# ==================== Node.js 24 (官方二进制安装 - 兼容 Shadowrocket) ====================
+echo "=== Installing Node.js 24 from official tarball (bypasses nodesource) ==="
 
-# Fix certificate issues (the #1 cause of nodesource failures in Docker)
-apt-get update
-apt-get install -y --no-install-recommends ca-certificates curl gnupg
-update-ca-certificates --fresh || true
+# 清理之前失败的安装
+apt-get purge -y nodejs npm libnode* || true
+apt-get autoremove -y || true
 
-# Modern NodeSource method (no longer uses the deprecated setup_*.x script)
-mkdir -p /etc/apt/keyrings
-curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key |
-    gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+# 下载并安装官方 Node.js 24.15.0（2026年4月最新 LTS）
+NODE_VERSION="24.15.0"
+curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" -o /tmp/node.tar.xz
 
-NODE_MAJOR=24
-echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" |
-    tee /etc/apt/sources.list.d/nodesource.list
+tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
+rm -f /tmp/node.tar.xz
 
-apt-get update
-apt-get install -y nodejs
-
-# Verify
+# 验证安装
 node --version
 npm --version
 
-# Corepack + pnpm
+# === Corepack + pnpm ===
 npm install -g corepack@latest
 corepack enable pnpm
 corepack prepare pnpm@latest --activate
 
-# pnpm environment for the dev user
+# 为 dev 用户设置 pnpm 环境
 mkdir -p /home/dev/.local/share/pnpm
 chown -R dev:dev /home/dev/.local
 
 cat >>/home/dev/.zshrc <<'EOF'
 
+# pnpm
 export PNPM_HOME="/home/dev/.local/share/pnpm"
 export PATH="$PNPM_HOME:$PATH"
 EOF
 
+# 当前 shell 也生效
 export PNPM_HOME="/home/dev/.local/share/pnpm"
 export PATH="$PNPM_HOME:$PATH"
+
+pnpm --version
+echo "✅ Node.js + pnpm installed successfully"
 
 # Optional: install openclaw if you still need it
 pnpm add -g openclaw@latest || echo "openclaw skipped (optional)"
