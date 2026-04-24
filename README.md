@@ -107,5 +107,6 @@ openclaw onboard
 openclaw config set gateway.bind lan
 openclaw config set agents.defaults.workspace ~/code/workspace
 openclaw config set agents.defaults.contextTokens 1000000
+openclaw config set agents.defaults.compaction.reserveTokensFloor 500000
 openclaw gateway
 ```
