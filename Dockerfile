@@ -1,4 +1,4 @@
-FROM ubuntu:24.04 AS base
+FROM ubuntu:26.04 AS base
 ENV GCC_VERSION=15
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=en_US.UTF-8
