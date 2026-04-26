@@ -11,16 +11,28 @@
 
 (require json)
 
-(provide pool-ping pool-goto pool-refs pool-sym pool-doc pool-hover
+(provide pool-ping pool-goto pool-refs pool-sym pool-doc
          pool-stop pool-stop-all pool-list pool-status)
 
-;; Resolve clangd.rkt relative to this file, fallback to current-directory
+;; Resolve clangd.rkt relative to pool.rkt's own directory.
+;; Search: same dir, scripts/ subdir, or explicit path from load-relative.
 (define CLANGD-SCRIPT
   (path->string
-   (let ([dir (current-load-relative-directory)])
-     (if dir
-         (build-path (path-only (path->string dir)) "clangd.rkt")
-         (build-path (current-directory) "clangd.rkt")))))
+   (let* ([here (or (current-load-relative-directory)
+                    (current-directory))]
+          [maybe-dir (cond
+                      [(path? here) (path->string here)]
+                      [(string? here) here]
+                      [else (path->string (current-directory))])]
+          [candidates (list
+                       (build-path (path-only (string->path maybe-dir)) "clangd.rkt")
+                       (build-path (string->path maybe-dir) "clangd.rkt")
+                       (build-path (current-directory) "clangd.rkt")
+                       (build-path (current-directory) "scripts" "clangd.rkt"))])
+     (let loop ([cs candidates])
+       (cond [(null? cs) (car candidates)]
+             [(file-exists? (car cs)) (car cs)]
+             [else (loop (cdr cs))])))))
 
 ;; ─── Daemon pool ────────────────────────────────────────────────────────────────
 
@@ -29,12 +41,16 @@
 (define (spawn-daemon! dir)
   (define racket-bin (find-executable-path "racket"))
   (unless racket-bin (error 'pool "racket not found in PATH"))
-  (define sp (process* (path->string racket-bin)
-                       (list CLANGD-SCRIPT "-d" dir "DAEMONMODE")))
-  (define dout  (car sp))    ; stdout from daemon
-  (define dinp  (cadr sp))   ; stdin to daemon
-  (define dstderr (caddr sp))
-  (define dctrl (list-ref sp 4))
+  ; process* returns (list stdout-input stdin-output pid stderr-input control).
+  ; Use absolute path for racket to avoid PATH resolution issues in subprocess.
+  (define sp (process* (path->string racket-bin) CLANGD-SCRIPT "-d" dir "DAEMONMODE"))
+  (define dout (list-ref sp 0))    ; stdout from daemon (input-port)
+  (define dinp (list-ref sp 1))    ; stdin to daemon (output-port)
+  (define dpid (list-ref sp 2))
+  (define dstderr (list-ref sp 3))
+  (define dctrl-raw (list-ref sp 4))
+  ; process* returns a 1-arg control proc; wrap to match process convention ((dctrl) 'kill)
+  (define dctrl (lambda () dctrl-raw))
   ;; Drain stderr in a background thread to prevent clangd blocking on full stderr buffer
   (thread (lambda ()
             (let loop ()
@@ -55,7 +71,7 @@
     (close-output-port dinp)
     (close-input-port dout)
     (error 'pool "clangd daemon for ~a timed out waiting for READY" dir))
-  (define trimmed (string-trim (if (eq? ready-line 'eof) "" ready-line)))
+  (define trimmed (string-trim (if (eof-object? ready-line) "" (if (string? ready-line) ready-line ""))))
   (unless (equal? trimmed "READY")
     ((dctrl) 'kill)
     (close-output-port dinp)
@@ -138,12 +154,6 @@
 
 (define (pool-doc dir file)
   (send-json dir (format "doc ~a" file)))
-
-(define (pool-hover dir file line col)
-  (define r (send-json dir (format "hover ~a ~a ~a" file line col)))
-  (cond [(string? r) r]
-        [(hash? r) (hash-ref r 'result "none")]
-        [else "none"]))
 
 ;; ─── Pool lifecycle ─────────────────────────────────────────────────────────────
 

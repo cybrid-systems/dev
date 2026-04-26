@@ -1,6 +1,6 @@
 ---
 name: doom-lsp
-description: Pure Racket C/C++ code analysis via clangd LSP with a persistent daemon pool. Use for jump-to-definition, find-all-references, workspace-symbol-search, document-symbols, and hover-info in any C/C++ project that has a compile_commands.json. No Python, no TCP, no PTY. Designed for large projects (Redis, Valkey, Linux kernel, etc.) where single-shot clangd is too slow.
+description: Pure Racket C/C++ code analysis via clangd LSP with a persistent daemon pool. Use for jump-to-definition, find-all-references, workspace-symbol-search, and document-symbols in any C/C++ project that has a compile_commands.json. No Python, no TCP, no PTY. Designed for large projects (Redis, Valkey, Linux kernel, etc.) where single-shot clangd is too slow.
 ---
 
 # doom-lsp
@@ -15,15 +15,12 @@ racket scripts/generate_compile_commands.rkt /path/to/project
 
 # 2. Single-shot CLI (good for one-off queries)
 racket scripts/clangd.rkt -d /path/to/project def src/file.c 42 5
-racket scripts/clangd.rkt -d /path/to/project hover src/file.c 42 5
-
 # 3. Persistent daemon (recommended for many queries)
 #    Spawn once, send commands via stdin:
 racket scripts/clangd.rkt -d /path/to/project DAEMONMODE
 #  Send: def src/file.c 42 5
 #        refs src/file.c 42 5
 #        sym symbol_name
-#        hover src/file.c 42 5
 #        quit
 
 # 4. Pool API (Racket REPL / skill scripts)
@@ -32,7 +29,6 @@ racket scripts/clangd.rkt -d /path/to/project DAEMONMODE
 (pool-goto "/path/to/project" "src/file.c" 42 5)
 (pool-refs "/path/to/project" "src/file.c" 42 5)
 (pool-sym "/path/to/project" "symbol_name")
-(pool-hover "/path/to/project" "src/file.c" 42 5)
 (pool-stop "/path/to/project")
 (pool-stop-all)
 ```
@@ -59,7 +55,6 @@ racket scripts/clangd.rkt -d /path/to/project DAEMONMODE
 | `refs` | `file line col` | Find references |
 | `sym` | `query [file]` | Search symbols by name (optional file scoping) |
 | `doc` | `file` | List symbols in file |
-| `hover` | `file line col` | Get type/signature at position |
 | `ping` | — | Health check |
 | `quit` | — | Stop daemon |
 | `close` | — | Close all open documents (reset clangd state) |

@@ -323,17 +323,6 @@
       (else (hasheq 'name "?" 'kind 0 'file abs-file 'line 0))))
   (map parse-item items))
 
-(define (hover! inp file line col base-dir)
-  (define abs-file (resolve-path* file base-dir))
-  (define uri (path->uri (string->path abs-file)))
-  (define result (send-request inp 6 "textDocument/hover"
-    (hasheq 'textDocument (hasheq 'uri uri)
-            'position (hasheq 'line line 'character col))))
-  (cond
-    [(eq? result 'null) #f]
-    [(hash? result) (hash-ref result 'contents #f)]
-    [else #f]))
-
 ;; ─── Command dispatch (shared by CLI and daemon) ────────────────────────────────
 
 (define (parse-def-args args)
@@ -389,11 +378,6 @@
       (when (> (string-length file) 0)
         (ensure-document! inp file base-dir))
       (jsexpr->string (document-symbols! inp file base-dir))]
-    ['hover
-      (define-values (file line col) (parse-def-args args))
-      (when (> (string-length file) 0)
-        (ensure-document! inp file base-dir))
-      (jsexpr->string (or (hover! inp file line col base-dir) #f))]
     ['close
       ;; Close all open documents (useful before quitting or to reset state)
       (for ([(uri _) (in-hash opened-documents)])
@@ -410,7 +394,7 @@
         (OPEN_DOCUMENT_DELAY (string->number (car args))))
       (format "~a" (OPEN_DOCUMENT_DELAY))]
     ['ping "pong"]
-    ['help "Commands: def|refs|sym|doc|hover|close|doc-limit|doc-delay|ping|quit"]
+    ['help "Commands: def|refs|sym|doc|close|doc-limit|doc-delay|ping|quit"]
     [else (format "unknown: ~a" cmd)]))
 
 ;; ─── Daemon mode ────────────────────────────────────────────────────────────────
@@ -422,6 +406,7 @@
   (define cmd-args (if (null? (cdr args)) '() (cdr args)))
   (define result (dispatch-command! inp cmd cmd-args base-dir))
   (displayln result)
+  (flush-output)  ; flush each response since stdout may be pipe-buffered
   (when (eq? cmd 'quit)
     (disconnect! clangd)
     (exit 0)))
@@ -479,7 +464,8 @@
       (else
        (with-handlers ([exn:fail? (lambda (e)
                                     (fprintf (current-error-port) "[error] ~a\n" (exn-message e))
-                                    (displayln (format "ERR: ~a" (exn-message e))))])
+                                    (displayln (format "ERR: ~a" (exn-message e)))
+                                    (flush-output))])
          (define args (string-split line))
          (when (not (null? args))
            (handle-command! clangd args dir)))
