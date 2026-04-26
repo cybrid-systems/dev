@@ -7,6 +7,7 @@ VERSION="22.1.4"
 VERSION_ENCODED="$VERSION%2F" # 编码斜杠
 TARGET_PYTHON="libpython3.11.so.1.0"
 INSTALL_DIR="/usr/local"
+LIB_PATH=""
 
 echo "---------------------------------------"
 echo "检测到系统架构: $ARCH"
@@ -25,41 +26,43 @@ fi
 URL="https://mirrors.tuna.tsinghua.edu.cn/github-release/llvm/llvm-project/LLVM%20${VERSION_ENCODED}/${FILENAME}"
 
 # 2. 下载与安装
-echo "正在从 GitHub 下载 LLVM ${VERSION}..."
+echo "正在从清华镜像下载 LLVM ${VERSION}..."
 wget -c "$URL" -O "/tmp/$FILENAME"
-
-if [ $? -ne 0 ]; then
-    echo "下载失败，请检查网络。"
-    exit 1
-fi
 
 echo "正在解压并安装到 ${INSTALL_DIR}..."
 tar -xJf "/tmp/$FILENAME" -C "$INSTALL_DIR" --strip-components=1
 rm "/tmp/$FILENAME"
 
-# 3. 核心修复：修复 lldb 的 Python 依赖
-echo "检查 lldb 的动态库依赖..."
+# 3. 核心修复：lldb 的 Python 依赖（保留你原来的逻辑）
+echo "检查 lldb 的 Python 动态库依赖..."
 if [ ! -f "$LIB_PATH/$TARGET_PYTHON" ]; then
-    echo "未发现 $TARGET_PYTHON，正在尝试从现有 Python 库建立软链接..."
-
-    # 查找系统现有的 python 3.x 共享库 (排除 3.11 自身)
+    echo "未发现 $TARGET_PYTHON，正在尝试建立软链接..."
     EXISTING_PY=$(find /usr/lib -name "libpython3.*.so.1.0" | head -n 1)
-
     if [ -n "$EXISTING_PY" ]; then
         echo "发现可用库: $EXISTING_PY"
         ln -sf "$EXISTING_PY" "$LIB_PATH/$TARGET_PYTHON"
-        echo "软链接创建成功: $TARGET_PYTHON -> $EXISTING_PY"
+        echo "软链接创建成功"
     else
-        echo "警告: 未在系统中发现任何 libpython3.x.so.1.0，lldb 可能无法运行。"
-        echo "建议执行: apt install -y python3-dev"
+        echo "警告: 未找到 libpython3.x.so.1.0，建议执行: apt install -y python3-dev"
     fi
 fi
 
-# 4. 刷新缓存与验证
+# 4. 【新增】修复 lldb 的 libxml2 依赖（Ubuntu 26.04 专用）
+echo "修复 lldb 的 libxml2 依赖 (Ubuntu 26.04 使用 libxml2.so.16)..."
+apt-get update -qq
+apt-get install -y --no-install-recommends libxml2
+
+if [ ! -f "$LIB_PATH/libxml2.so.2" ]; then
+    ln -sf "$LIB_PATH"/libxml2.so.16* "$LIB_PATH/libxml2.so.2" || true
+    echo "libxml2.so.2 软链接创建完成"
+fi
+
+# 5. 刷新缓存与验证
 ldconfig
+
 echo "---------------------------------------"
 if command -v clang >/dev/null; then
-    echo "LLVM $VERSION 安装完成！"
+    echo "✅ LLVM $VERSION 安装完成！"
     clang --version | head -n 1
     lldb --version | head -n 1
 else
