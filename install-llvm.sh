@@ -33,7 +33,7 @@ echo "正在解压并安装到 ${INSTALL_DIR}..."
 tar -xJf "/tmp/$FILENAME" -C "$INSTALL_DIR" --strip-components=1
 rm "/tmp/$FILENAME"
 
-# 3. 核心修复：lldb 的 Python 依赖（保留你原来的逻辑）
+# 3. 修复 lldb 的 Python 依赖（保留原逻辑）
 echo "检查 lldb 的 Python 动态库依赖..."
 if [ ! -f "$LIB_PATH/$TARGET_PYTHON" ]; then
     echo "未发现 $TARGET_PYTHON，正在尝试建立软链接..."
@@ -47,11 +47,12 @@ if [ ! -f "$LIB_PATH/$TARGET_PYTHON" ]; then
     fi
 fi
 
-# 4. 【新增】修复 lldb 的 libxml2 依赖（Ubuntu 26.04 专用）
-echo "修复 lldb 的 libxml2 依赖 (Ubuntu 26.04 使用 libxml2.so.16)..."
+# 4. 【关键修复】lldb 的 libxml2 依赖（Ubuntu 26.04 专用）
+echo "修复 lldb 的 libxml2 依赖 (Ubuntu 26.04 使用 libxml2-16)..."
 apt-get update -qq
-apt-get install -y --no-install-recommends libxml2
+apt-get install -y --no-install-recommends libxml2-16
 
+# 创建兼容软链接（让 lldb 能找到旧的 libxml2.so.2）
 if [ ! -f "$LIB_PATH/libxml2.so.2" ]; then
     ln -sf "$LIB_PATH"/libxml2.so.16* "$LIB_PATH/libxml2.so.2" || true
     echo "libxml2.so.2 软链接创建完成"
