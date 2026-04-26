@@ -9,24 +9,26 @@ echo "=== Installing Node.js 24 from official tarball (bypasses nodesource) ==="
 # 自动检测架构
 ARCH=$(uname -m)
 if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-    ARCH="linux-arm64"
+    NODE_ARCH="linux-arm64"
+    RACKET_ARCH="aarch64"
     echo "检测到 arm64 架构，使用 linux-arm64 tarball"
 else
-    ARCH="linux-x64"
+    NODE_ARCH="linux-x64"
+    RACKET_ARCH="x86_64"
     echo "检测到 x64 架构，使用 linux-x64 tarball"
 fi
 
 NODE_VERSION="24.15.0" # 当前最新 24.x LTS（2026-04）
-NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${ARCH}.tar.xz"
+NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_ARCH}.tar.xz"
 
 cd /tmp
 curl -fsSL -o node.tar.xz "$NODE_URL"
 sudo mkdir -p /usr/local/lib/nodejs
 sudo tar -xJf node.tar.xz -C /usr/local/lib/nodejs
-sudo ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-${ARCH}/bin/* /usr/local/bin/
+sudo ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-${NODE_ARCH}/bin/* /usr/local/bin/
 
 rm -f node.tar.xz
-echo "Node.js ${NODE_VERSION} (${ARCH}) 安装完成"
+echo "Node.js ${NODE_VERSION} (${NODE_ARCH}) 安装完成"
 
 # === Corepack + pnpm ===
 npm install -g corepack@latest
@@ -76,9 +78,9 @@ ln -sf $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
 echo "=== Installing Racket 9.1 (官方安装器，支持 arm64/x86) ==="
 
 cd /tmp
-INSTALLER="racket-minimal-9.1-${ARCH}-linux-buster-cs.sh"
+INSTALLER="racket-9.1-${RACKET_ARCH}-linux-buster-cs.sh"
 
-echo "正在下载 Racket 9.1 (${ARCH})..."
+echo "正在下载 Racket 9.1 (${RACKET_ARCH})..."
 curl -fsSL -o "$INSTALLER" "https://download.racket-lang.org/releases/9.1/installers/$INSTALLER"
 
 chmod +x "$INSTALLER"
