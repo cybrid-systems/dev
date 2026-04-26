@@ -3,23 +3,30 @@ set -euo pipefail
 echo "=== 安装语言工具 (NodeJS/Python/Rust/Racket) ==="
 export HOME=/home/dev
 
-# ==================== Node.js 24 (官方二进制安装 - 兼容 Shadowrocket) ====================
+# ====================== Node.js 24（官方 tarball，支持 arm64/x64）======================
 echo "=== Installing Node.js 24 from official tarball (bypasses nodesource) ==="
 
-# 清理之前失败的安装
-apt-get purge -y nodejs npm libnode* || true
-apt-get autoremove -y || true
+# 自动检测架构
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+    NODE_ARCH="linux-arm64"
+    echo "检测到 arm64 架构，使用 linux-arm64 tarball"
+else
+    NODE_ARCH="linux-x64"
+    echo "检测到 x64 架构，使用 linux-x64 tarball"
+fi
 
-# 下载并安装官方 Node.js 24.15.0（2026年4月最新 LTS）
-NODE_VERSION="24.15.0"
-curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" -o /tmp/node.tar.xz
+NODE_VERSION="24.15.0" # 当前最新 24.x LTS（2026-04）
+NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_ARCH}.tar.xz"
 
-tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
-rm -f /tmp/node.tar.xz
+cd /tmp
+curl -fsSL -o node.tar.xz "$NODE_URL"
+sudo mkdir -p /usr/local/lib/nodejs
+sudo tar -xJf node.tar.xz -C /usr/local/lib/nodejs
+sudo ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-${NODE_ARCH}/bin/* /usr/local/bin/
 
-# 验证安装
-node --version
-npm --version
+rm -f node.tar.xz
+echo "Node.js ${NODE_VERSION} (${NODE_ARCH}) 安装完成"
 
 # === Corepack + pnpm ===
 npm install -g corepack@latest
@@ -66,9 +73,6 @@ su - dev -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -
 ln -sf $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
 
 # ==================== Racket ====================
-# 添加PPA并apt安装
-add-apt-repository ppa:plt/racket -y
-apt-get update
 apt-get install -y racket
 
 # 以dev用户运行raco pkg install（用户级，避免root下petite加载问题）
