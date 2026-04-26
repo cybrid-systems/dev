@@ -86,7 +86,7 @@ curl -fsSL -o "$INSTALLER" "https://download.racket-lang.org/releases/9.1/instal
 chmod +x "$INSTALLER"
 
 # 安装（最干净的方式）
-sudo ./"$INSTALLER" --unix-style --dest /usr/local/racket --in-place
+sudo ./"$INSTALLER" --unix-style --dest /usr/local/racket
 
 # 创建全局软链接（racket、raco 等命令直接可用）
 sudo ln -sf /usr/local/racket/bin/* /usr/local/bin/
