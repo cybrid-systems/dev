@@ -79,7 +79,7 @@ cd /tmp
 INSTALLER="racket-9.1-${ARCH}-linux-buster-cs.sh"
 
 echo "正在下载 Racket 9.1 (${ARCH})..."
-curl -fsSL -o "$INSTALLER" "https://download.racket-lang.org/releases/9.1/$INSTALLER"
+curl -fsSL -o "$INSTALLER" "https://download.racket-lang.org/releases/9.1/installers/$INSTALLER"
 
 chmod +x "$INSTALLER"
 
