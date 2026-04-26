@@ -5,11 +5,12 @@ GCC_VERSION=${GCC_VERSION:-15}
 export DEBIAN_FRONTEND=noninteractive
 export TZ=Asia/Shanghai
 
-echo "=== 开始安装所有系统依赖 ==="
+echo "=== 开始安装所有系统依赖（Ubuntu 26.04 + GCC 15.2.0） ==="
 
 sudo apt-get update -qq
 sudo apt-get install -y --no-install-recommends \
     software-properties-common curl wget git
+
 date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)Z" || true
 
 sudo apt-get install -y --no-install-recommends \
@@ -27,7 +28,7 @@ sudo apt-get install -y --no-install-recommends \
     texinfo flex bison libgmp3-dev libmpfr-dev libmpc-dev \
     locales tzdata
 
-sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+# === Ubuntu 26.04 专属修改：无需 PPA，直接安装 GCC 15.2 + libgccjit ===
 sudo apt-get update -qq
 
 sudo apt-get install -y --no-install-recommends \
@@ -48,4 +49,4 @@ sudo dpkg-reconfigure --frontend noninteractive tzdata
 git config --global merge.conflictstyle diff3
 
 sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-echo "=== 所有依赖安装完成（GCC 15 + libgccjit 已就绪）==="
+echo "=== 所有依赖安装完成（Ubuntu 26.04 + GCC 15.2.0 + libgccjit 已就绪） ==="
