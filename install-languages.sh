@@ -76,7 +76,7 @@ ln -sf $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
 echo "=== Installing Racket 9.1 (官方安装器，支持 arm64/x86) ==="
 
 cd /tmp
-INSTALLER="racket-9.1-${ARCH}-linux-buster-cs.sh"
+INSTALLER="racket-minimal-9.1-${ARCH}-linux-buster-cs.sh"
 
 echo "正在下载 Racket 9.1 (${ARCH})..."
 curl -fsSL -o "$INSTALLER" "https://download.racket-lang.org/releases/9.1/installers/$INSTALLER"
