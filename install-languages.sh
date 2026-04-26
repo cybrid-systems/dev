@@ -9,24 +9,24 @@ echo "=== Installing Node.js 24 from official tarball (bypasses nodesource) ==="
 # 自动检测架构
 ARCH=$(uname -m)
 if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-    NODE_ARCH="linux-arm64"
+    ARCH="linux-arm64"
     echo "检测到 arm64 架构，使用 linux-arm64 tarball"
 else
-    NODE_ARCH="linux-x64"
+    ARCH="linux-x64"
     echo "检测到 x64 架构，使用 linux-x64 tarball"
 fi
 
 NODE_VERSION="24.15.0" # 当前最新 24.x LTS（2026-04）
-NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_ARCH}.tar.xz"
+NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${ARCH}.tar.xz"
 
 cd /tmp
 curl -fsSL -o node.tar.xz "$NODE_URL"
 sudo mkdir -p /usr/local/lib/nodejs
 sudo tar -xJf node.tar.xz -C /usr/local/lib/nodejs
-sudo ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-${NODE_ARCH}/bin/* /usr/local/bin/
+sudo ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-${ARCH}/bin/* /usr/local/bin/
 
 rm -f node.tar.xz
-echo "Node.js ${NODE_VERSION} (${NODE_ARCH}) 安装完成"
+echo "Node.js ${NODE_VERSION} (${ARCH}) 安装完成"
 
 # === Corepack + pnpm ===
 npm install -g corepack@latest
@@ -72,8 +72,25 @@ su - dev -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -
 # 链接fd
 ln -sf $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
 
-# ==================== Racket ====================
-apt-get install -y racket
+# ====================== Racket 9.1（官方最新，支持 arm64 + x86_64）======================
+echo "=== Installing Racket 9.1 (官方安装器，支持 arm64/x86) ==="
+
+cd /tmp
+INSTALLER="racket-9.1-${ARCH}-linux-buster-cs.sh"
+
+echo "正在下载 Racket 9.1 (${ARCH})..."
+curl -fsSL -o "$INSTALLER" "https://download.racket-lang.org/releases/9.1/$INSTALLER"
+
+chmod +x "$INSTALLER"
+
+# 安装（最干净的方式）
+sudo ./"$INSTALLER" --unix-style --dest /usr/local/racket --in-place
+
+# 创建全局软链接（racket、raco 等命令直接可用）
+sudo ln -sf /usr/local/racket/bin/* /usr/local/bin/
+
+rm -f "$INSTALLER"
+echo "Racket 9.1 安装完成 ✓"
 
 # 以dev用户运行raco pkg install（用户级，避免root下petite加载问题）
 su - dev -c "raco pkg install --auto --skip-installed fmt racket-langserver"
