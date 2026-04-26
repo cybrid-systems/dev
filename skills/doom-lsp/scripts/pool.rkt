@@ -41,18 +41,21 @@
               (define ln (read-line dstderr))
               (unless (eof-object? ln) (loop)))))
   ;; Wait for READY (with guard against EOF/timeout)
-  (define first-line
-    (sync/timeout 10
-      (handle-evt (port->evt dout)
-        (lambda (p)
-          (with-handlers ([exn:fail? (lambda _ #f)])
-            (read-line p))))))
-  (unless first-line
+  ;; Use a thread + channel since port->evt is not available in Racket CS
+  (define ready-chan (make-channel))
+  (define ready-thread
+    (thread (lambda ()
+      (define first-line
+        (with-handlers ([exn:fail? (lambda _ 'eof)])
+          (read-line dout)))
+      (channel-put ready-chan (or first-line 'eof)))))
+  (define ready-line (sync/timeout 10 ready-chan))
+  (unless ready-line
     ((dctrl) 'kill)
     (close-output-port dinp)
     (close-input-port dout)
     (error 'pool "clangd daemon for ~a timed out waiting for READY" dir))
-  (define trimmed (string-trim first-line))
+  (define trimmed (string-trim (if (eq? ready-line 'eof) "" ready-line)))
   (unless (equal? trimmed "READY")
     ((dctrl) 'kill)
     (close-output-port dinp)
@@ -72,6 +75,9 @@
          (begin (hash-remove! pool-processes dir) (spawn-daemon! dir)))]
     [else (spawn-daemon! dir)]))
 
+;; Max retries for daemon restart before giving up
+(define MAX-RESTART-RETRIES 3)
+
 (define (send-command dir cmd-line)
   (define daemon (ensure-daemon! dir))
   (define inp (hash-ref daemon 'inp))
@@ -82,14 +88,25 @@
   (define resp (read-line out))
   (cond
     [(eof-object? resp)
-     ;; Daemon died — mark dead, retry once
+     ;; Daemon died — mark dead and retry with backoff
      (hash-set! daemon 'alive #f)
-     (define daemon2 (ensure-daemon! dir))
-     (define inp2 (hash-ref daemon2 'inp))
-     (define out2 (hash-ref daemon2 'out))
-     (fprintf inp2 "~a\n" cmd-line)
-     (flush-output inp2)
-     (read-line out2)]
+     (let retry ([attempt 1])
+       (define daemon2 (ensure-daemon! dir))
+       (define inp2 (hash-ref daemon2 'inp))
+       (define out2 (hash-ref daemon2 'out))
+       (fprintf inp2 "~a\n" cmd-line)
+       (flush-output inp2)
+       (define resp2 (read-line out2))
+       (cond
+         [(eof-object? resp2)
+          (if (< attempt MAX-RESTART-RETRIES)
+              (begin (sleep (* 0.5 attempt)) ; backoff: 0.5, 1.0, 1.5s
+                     (hash-set! daemon2 'alive #f)
+                     (retry (add1 attempt)))
+              (begin (fprintf (current-error-port)
+                      "[pool] daemon for ~a crashed ~a times, giving up\n" dir MAX-RESTART-RETRIES)
+                     #f))]
+         [else resp2]))]
     [(string-prefix? (string-trim resp) "ERR:")
      (fprintf (current-error-port) "[pool] daemon error: ~a\n" resp)
      #f]

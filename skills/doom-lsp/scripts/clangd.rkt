@@ -2,30 +2,49 @@
 (require racket/port
          racket/string
          racket/function
-         racket/mutex
          json)
 
 ;; ─── URI helpers ────────────────────────────────────────────────────────────────
 
 (define (uri-encode str)
-  "Percent-encode special characters for file URI (minimal: spaces and non-ASCII)."
+  "Percent-encode per RFC 3986 for file URIs. Encodes anything except unreserved chars."
   (define (hex-byte b)
-    (string-upcase (bytes->string/utf-8 (bytes-append #"%" (~r b #:base 16 #:min-width 2 #:pad-string "0")))))
+    (string->bytes/utf-8 (string-append "%" (string-upcase (~r b #:base 16 #:min-width 2 #:pad-string "0")))))
+  (define (unreserved? b)
+    (or (and (>= b 65) (<= b 90))   ; A-Z
+        (and (>= b 97) (<= b 122))  ; a-z
+        (and (>= b 48) (<= b 57))   ; 0-9
+        (memv b (list (char->integer #\-) (char->integer #\_)
+                  (char->integer #\.) (char->integer #\~)
+                  (char->integer #\/) (char->integer #\:))))) ; allowed in file URI path
   (bytes->string/utf-8
    (apply bytes-append
           (for/list ([b (in-bytes (string->bytes/utf-8 str))])
-            (cond
-              [(or (and (>= b (char->integer #\a)) (<= b (char->integer #\z)))
-                   (and (>= b (char->integer #\A)) (<= b (char->integer #\Z)))
-                   (and (>= b (char->integer #\0)) (<= b (char->integer #\9)))
-                   (memv b (list (char->integer #\-) (char->integer #\_)
-                                 (char->integer #\.) (char->integer #\~)
-                                 (char->integer #\/) (char->integer #\:))))
-               (bytes b)]
-              [else (hex-byte b)])))))
+            (if (unreserved? b)
+                (bytes b)
+                (hex-byte b))))))
 
 (define (path->uri path)
   (string-append "file://" (uri-encode (path->string path))))
+
+(define (uri-decode uri-path)
+  "Percent-decode a file URI path back to filesystem path."
+  (define (hex-val b)
+    (cond [(char<=? #\0 (integer->char b) #\9) (- b 48)]
+          [(char<=? #\a (integer->char b) #\f) (- b 87)]
+          [(char<=? #\A (integer->char b) #\F) (- b 55)]
+          [else 0]))
+  (bytes->string/utf-8
+   (let loop ([bs (string->bytes/utf-8 uri-path)] [i 0] [acc '()])
+     (cond
+       [(>= i (bytes-length bs)) (list->bytes (reverse acc))]
+       [(and (char=? (integer->char (bytes-ref bs i)) #\%)
+             (< (+ i 2) (bytes-length bs)))
+        (define hi (bytes-ref bs (add1 i)))
+        (define lo (bytes-ref bs (+ i 2)))
+        (define val (+ (* (hex-val hi) 16) (hex-val lo)))
+        (loop bs (+ i 3) (cons val acc))]
+       [else (loop bs (add1 i) (cons (bytes-ref bs i) acc))]))))
 
 ;; ─── Language ID detection ──────────────────────────────────────────────────────
 
@@ -91,36 +110,32 @@
 ;; ─── Request / response ─────────────────────────────────────────────────────────
 
 (define pending-responses (make-hash))           ; id → channel
-(define pending-lock (make-mutex))               ; thread safety for pending-responses
+(define pending-lock (make-semaphore 1))        ; thread safety for pending-responses
 (define reader-stop-channel (make-channel))      ; sentinel to stop reader thread
 
 (define (start-reader out-port)
   (thread
    (lambda ()
-     (let/ec escape
-       (let loop ()
-         ;; Check for stop signal (non-blocking)
-         (define stop? (sync/enable-break
-                         (thread-receive-evt)
-                         (handle-evt reader-stop-channel (lambda (msg) msg))
-                         (handle-evt (system-idle-evt) (lambda () 'idle))))
-         (when (and (not (eq? stop? 'idle)) stop?)
-           (escape))
-         (with-handlers ([exn:fail? (lambda (e)
-                                      (fprintf (current-error-port) "[reader] ~a\n" (exn-message e))
-                                      ;; brief sleep to avoid busy-loop on persistent errors (e.g. closed port)
-                                      (sleep 0.05)
-                                      (loop))])
-           (define msg (read-json-message out-port))
-           (when (and msg (hash? msg))
-             (let ([rid (hash-ref msg 'id #f)])
-               (when rid
-                 (with-mutex pending-lock
-                   (define ch (hash-ref pending-responses rid #f))
-                   (when ch
-                     (hash-remove! pending-responses rid)
-                     (channel-put ch msg))))))
-           (loop)))))))
+     (let loop ()
+       ;; Check for stop signal before each iteration
+       (define stop? (sync/timeout 0 reader-stop-channel))
+       (when stop?
+         (void))  ; exit gracefully
+       (with-handlers ([exn:fail? (lambda (e)
+                                    (fprintf (current-error-port) "[reader] ~a\n" (exn-message e))
+                                    ;; brief sleep to avoid busy-loop on persistent errors
+                                    (sleep 0.05))])
+         (define msg (read-json-message out-port))
+         (cond
+           [(and (hash? msg) (hash-ref msg 'id #f))
+            => (lambda (rid)
+                 (call-with-semaphore pending-lock
+                   (lambda ()
+                     (define ch (hash-ref pending-responses rid #f))
+                     (when ch
+                       (hash-remove! pending-responses rid)
+                       (channel-put ch msg)))))])
+         (loop))))))
 
 (define (stop-reader!)
   (channel-put reader-stop-channel 'stop))
@@ -129,13 +144,13 @@
 
 (define (send-request inp id method params)
   (define resp-chan (make-channel))
-  (with-mutex pending-lock
-    (hash-set! pending-responses id resp-chan))
+  (call-with-semaphore pending-lock
+    (lambda () (hash-set! pending-responses id resp-chan)))
   (lsp-request! inp id method params)
   (define resp (sync/timeout REQUEST-TIMEOUT-SEC resp-chan))
   ;; Always clean up the channel regardless of outcome (fix #5)
-  (with-mutex pending-lock
-    (hash-remove! pending-responses id))
+  (call-with-semaphore pending-lock
+    (lambda () (hash-remove! pending-responses id)))
   (cond
     [(not resp) (error 'clangd "timeout id=~a after ~a s" id REQUEST-TIMEOUT-SEC)]
     [(hash-has-key? resp 'error) (error 'clangd "~a" (hash-ref resp 'error))]
@@ -150,11 +165,16 @@
 (define (connect root-path)
   (define clangd-path (find-executable-path "clangd"))
   (unless clangd-path (error 'clangd "clangd not found in PATH"))
-  (define proc-result (process* clangd-path "--compile-commands-dir" root-path))
-  (define clangd-out  (list-ref proc-result 0))
-  (define clangd-in   (list-ref proc-result 1))
-  (define clangd-ctrl (list-ref proc-result 4))
-  (list clangd-out clangd-in clangd-ctrl))
+  ;; Use --background-index for background indexing and performance tuning flags
+  (define proc-result (process* clangd-path
+                       "--compile-commands-dir" root-path
+                       "--background-index"
+                       "--header-insertion=never"
+                       "--clang-tidy=false"))
+  (define clangd-stdout (list-ref proc-result 0))
+  (define clangd-stdin  (list-ref proc-result 1))
+  (define clangd-ctrl   (list-ref proc-result 4))
+  (list clangd-stdout clangd-stdin clangd-ctrl))
 
 (define (disconnect! clangd)
   (stop-reader!)
@@ -168,22 +188,44 @@
   (define inp (cadr clangd))
   (start-reader (car clangd))
   (send-request inp 1 "initialize"
-    (hasheq 'processId (current-process-id)
+    (hasheq 'processId #f    ; null for non-editor clients
             'rootUri (path->uri (string->path root-path))
             'capabilities (hasheq)))
   (write-json-notification inp "initialized" (hasheq)))
 
 ;; ─── Document management ────────────────────────────────────────────────────────
 
-(define opened-documents (make-hash))  ; uri → #t
+(define opened-documents (make-hash))  ; uri → timestamp (order for LRU eviction)
+(define opened-order '())              ; list of uri, most-recently-used first
 
-;; How long to wait after didOpen for clangd to parse (seconds).
-;; Increase for very large files, decrease for small ones.
-(define OPEN_DOCUMENT_DELAY 0.1)
+;; Delay after didOpen for clangd to parse (seconds). Configurable via parameter.
+(define OPEN_DOCUMENT_DELAY (make-parameter 0.1))
+
+;; Max open documents before LRU eviction prevents unbounded memory growth.
+(define MAX_OPEN_DOCUMENTS (make-parameter 500))
 
 (define (resolve-path* file base-dir)
-  (if (string-prefix? file "/") file
-      (path->string (build-path base-dir (string->path file)))))
+  (if (string-prefix? file "/")
+      file
+      (path->string
+       (build-path (simplify-path (string->path base-dir)) (string->path file)))))
+
+(define (document-close! inp uri)
+  (write-json-notification inp "textDocument/didClose"
+    (hasheq 'textDocument (hasheq 'uri uri)))
+  (hash-remove! opened-documents uri)
+  (set! opened-order (remove uri opened-order equal?)))
+
+(define (document-touch! uri)
+  ;; Move uri to front of opened-order
+  (set! opened-order (cons uri (remove uri opened-order equal?))))
+
+(define (enforce-document-limit! inp)
+  (let ([limit (MAX_OPEN_DOCUMENTS)])
+    (when (and (> limit 0) (> (hash-count opened-documents) limit))
+      ;; Close LRU (last element in opened-order)
+      (define lru (last opened-order))
+      (document-close! inp lru))))
 
 (define (ensure-document! inp file base-dir)
   (define abs-file (resolve-path* file base-dir))
@@ -196,9 +238,13 @@
               (hasheq 'uri uri
                       'languageId (language-id abs-file)
                       'text text)))
-    (hash-set! opened-documents uri #t)
+    (hash-set! opened-documents uri (current-inexact-milliseconds))
+    (document-touch! uri)
+    (enforce-document-limit! inp)
     ;; TODO: ideally wait for textDocument/publishDiagnostics instead of a fixed sleep
-    (sleep OPEN_DOCUMENT_DELAY))
+    (sleep (OPEN_DOCUMENT_DELAY)))
+  ;; Even if already open, touch it so LRU reflects recent use
+  (document-touch! uri)
   (void))
 
 ;; ─── LSP operations ─────────────────────────────────────────────────────────────
@@ -212,27 +258,6 @@
                         (uri-decode (substring file-uri 7))
                         file-uri)])
          (hasheq 'file path 'line (add1 (hash-ref start 'line))))))
-
-(define (uri-decode uri-path)
-  "Percent-decode a file URI path back to filesystem path."
-  (define (hex-val b)
-    (cond [(char<=? #\0 (integer->char b) #\9) (- b 48)]
-          [(char<=? #\a (integer->char b) #\f) (- b 87)]
-          [(char<=? #\A (integer->char b) #\F) (- b 55)]
-          [else 0]))
-  (bytes->string/utf-8
-   (let loop ([bs (string->bytes/utf-8 uri-path)] [i 0] [acc '()])
-     (cond
-       [(>= i (bytes-length bs)) (list->bytes (reverse acc))]
-       [(and (char=? (integer->char (bytes-ref bs i)) #\%)
-             (<= (+ i 2) (sub1 (bytes-length bs))))
-        (define hi (bytes-ref bs (add1 i)))
-        (define lo (bytes-ref bs (+ i 2)))
-        (define val (+ (* (hex-val hi) 16) (hex-val lo)))
-        (loop bs (+ i 3) (cons val acc))]
-       [(char=? (integer->char (bytes-ref bs i)) #\+)
-        (loop bs (add1 i) (cons 32 acc))]
-       [else (loop bs (add1 i) (cons (bytes-ref bs i) acc))]))))
 
 (define (goto-definition! inp file line col base-dir)
   (define abs-file (resolve-path* file base-dir))
@@ -332,9 +357,33 @@
     ['sym
       (define query (if (< 0 (length args)) (car args) ""))
       (define src-file (if (< 1 (length args)) (cadr args) ""))
-      (when (> (string-length src-file) 0)
-        (ensure-document! inp src-file base-dir))
-      (jsexpr->string (workspace-symbol! inp query))]
+      (cond
+        [(> (string-length src-file) 0)
+         ;; File-specific: ensure it's open, then search workspace
+         (ensure-document! inp src-file base-dir)
+         (define results (workspace-symbol! inp query))
+         (if (null? results)
+             ;; Fallback: search this file's symbols directly
+             (jsexpr->string (document-symbols! inp src-file base-dir))
+             (jsexpr->string results))]
+        [else
+         ;; Workspace-wide: try workspace/symbol first
+         (define results (workspace-symbol! inp query))
+         (if (null? results)
+             ;; Fallback: search all opened documents for matching symbols
+             (let ([match (lambda (sym)
+                            (and (hash? sym)
+                                 (let ([n (hash-ref sym 'name "")])
+                                   (and (>= (string-length n) (string-length query))
+                                        (not (not (regexp-match (string-append "(?i:" (regexp-quote query) ")") n)))))))]
+                   [all '()])
+               (for ([(uri _) (in-hash opened-documents)])
+                 (define abs-path (uri-decode (substring uri 7)))
+                 (define entries (with-handlers ([exn? (lambda _ '())])
+                                   (document-symbols! inp abs-path base-dir)))
+                 (set! all (append all (filter match entries))))
+               (jsexpr->string all))
+             (jsexpr->string results))])]
     ['doc
       (define file (if (< 0 (length args)) (car args) ""))
       (when (> (string-length file) 0)
@@ -345,8 +394,23 @@
       (when (> (string-length file) 0)
         (ensure-document! inp file base-dir))
       (jsexpr->string (or (hover! inp file line col base-dir) #f))]
+    ['close
+      ;; Close all open documents (useful before quitting or to reset state)
+      (for ([(uri _) (in-hash opened-documents)])
+        (document-close! inp uri))
+      "ok"]
+    ['doc-limit
+      ;; Set max open documents at runtime
+      (when (pair? args)
+        (MAX_OPEN_DOCUMENTS (string->number (car args))))
+      (format "~a" (MAX_OPEN_DOCUMENTS))]
+    ['doc-delay
+      ;; Set open document delay at runtime (seconds)
+      (when (pair? args)
+        (OPEN_DOCUMENT_DELAY (string->number (car args))))
+      (format "~a" (OPEN_DOCUMENT_DELAY))]
     ['ping "pong"]
-    ['help "Commands: def|refs|sym|doc|hover|ping|quit"]
+    ['help "Commands: def|refs|sym|doc|hover|close|doc-limit|doc-delay|ping|quit"]
     [else (format "unknown: ~a" cmd)]))
 
 ;; ─── Daemon mode ────────────────────────────────────────────────────────────────
@@ -362,9 +426,47 @@
     (disconnect! clangd)
     (exit 0)))
 
+;; Warm up clangd by opening a project file to kick-start background indexing.
+;; After this, workspace/symbol will return results immediately.
+(define (warmup-index! inp dir)
+  ;; Open key source files to jump-start clangd index.
+  ;; Multiple files ensures more symbols are available for workspace/symbol.
+  (define candidates
+    (list "src/server.c" "src/main.c" "src/sds.c"
+          "src/ae.c" "src/networking.c" "src/db.c"
+          "redis.c" "main.c" "server.c" "app.js" "app.py"))
+  (define (open* files)
+    (for ([f (in-list files)])
+      (define p (build-path dir f))
+      (when (file-exists? p)
+        (ensure-document! inp f dir)
+        (fprintf (current-error-port) "[warmup] opened ~a\n" f))))
+  ;; Try specific candidates first
+  (open* candidates)
+  ;; Auto-discover up to 3 .c/.h files under src/ or project root
+  (define (find-and-open roots [limit 3])
+    (let ([count 0])
+      (for ([root (in-list roots)])
+        (when (directory-exists? root)
+          (for ([e (in-list (directory-list root))])
+            (when (< count limit)
+              (define name (path->string e))
+              (when (or (string-suffix? name ".c") (string-suffix? name ".h")
+                        (string-suffix? name ".cpp") (string-suffix? name ".hpp"))
+                (define rel (if (equal? root dir) name
+                                (path->string (build-path (path->string (last (explode-path root))) e))))
+                (unless (hash-has-key? opened-documents (path->uri (string->path (resolve-path* rel dir))))
+                  (ensure-document! inp rel dir)
+                  (fprintf (current-error-port) "[warmup] opened ~a\n" rel)
+                  (set! count (add1 count))))))))))
+  (find-and-open (list dir (build-path dir "src") (build-path dir "app") (build-path dir "lib"))))
+
 (define (run-daemon! dir)
   (define clangd (connect dir))
+  (define inp (cadr clangd))
   (initialize! clangd dir)
+  ;; Warm up: open a project file so workspace/symbol works immediately
+  (warmup-index! inp dir)
   (fprintf (current-error-port) "[daemon] ready at ~a\n" dir)
   (fprintf (current-output-port) "READY\n")
   (flush-output (current-error-port))
@@ -388,10 +490,10 @@
 
 (define (main)
   (define raw-args (vector->list (current-command-line-arguments)))
-  (define daemon-requested (member "DAEMONMODE" raw-args))
+  (define daemon-requested (member "DAEMONMODE" raw-args string=?))
   (define opts (make-hash))
   (define positional '())
-  (define args-to-parse (if daemon-requested (remq 'DAEMONMODE raw-args) raw-args))
+  (define args-to-parse (if daemon-requested (remove "DAEMONMODE" raw-args string=?) raw-args))
   (let loop ([args args-to-parse])
     (cond
       [(null? args) (set! positional (reverse positional))]
@@ -403,9 +505,9 @@
        (loop (cdr args))]
       [else (set! positional (cons (car args) positional)) (loop (cdr args))]))
 
-  (define dir (or (hash-ref opts 'dir #f) (path->string (current-directory))))
+  (define dir (path->string (simplify-path (string->path (or (hash-ref opts 'dir #f) (path->string (current-directory)))))))
   (define cmd (if (null? positional) 'help (string->symbol (car positional))))
-  (define cmd-args (if (null? (cdr positional)) '() (cdr positional)))
+  (define cmd-args (if (or (null? positional) (null? (cdr positional))) '() (cdr positional)))
 
   (when daemon-requested
     (run-daemon! dir)

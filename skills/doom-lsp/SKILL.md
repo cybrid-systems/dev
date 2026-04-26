@@ -41,6 +41,7 @@ racket scripts/clangd.rkt -d /path/to/project DAEMONMODE
 
 - **clangd** in PATH (`apt install clangd`, `brew install llvm`, etc.)
 - **compile_commands.json** at project root (see below)
+- **Racket** 8.x+ (tested on 9.1 CS; mutex uses semaphore for Racket CS compatibility)
 
 ## Files
 
@@ -61,6 +62,9 @@ racket scripts/clangd.rkt -d /path/to/project DAEMONMODE
 | `hover` | `file line col` | Get type/signature at position |
 | `ping` | — | Health check |
 | `quit` | — | Stop daemon |
+| `close` | — | Close all open documents (reset clangd state) |
+| `doc-limit` | `[N]` | Get or set max open documents for LRU eviction |
+| `doc-delay` | `[seconds]` | Get or set open-document parse delay |
 
 > **Note:** Line/column are **0-based** (clangd convention). All file paths are relative to project root.
 
@@ -101,11 +105,27 @@ cp compile_commands.json ../
 bear -- make -j$(nproc)
 ```
 
+## Pool Recovery
+
+Pool auto-restarts crashed daemons with exponential backoff (max 3 retries). If the daemon keeps crashing, the pool gives up and returns `#f` instead of infinitely looping.
+
+## Configurable Parameters
+
+The daemon supports runtime configuration via new commands:
+- `doc-limit N` — set max open documents (default 500, 0 = unlimited)
+- `doc-delay seconds` — set open-document parse delay (default 0.1s)
+
+Or use Racket parameters in code:
+```racket
+(OPEN_DOCUMENT_DELAY 0.3)   ; increase for large files
+(MAX_OPEN_DOCUMENTS 1000)   ; increase for very large projects
+```
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
 | `clangd: clangd not found in PATH` | clangd not installed | `apt install clangd` or `brew install llvm` |
 | `timeout id=N after 20 s` | clangd busy or crashed | Check `compile_commands.json`; try `racket scripts/clangd.rkt -d <dir> ping` |
-| Daemon returns EOF | clangd process died | Pool auto-restarts on next call; check stderr from daemon |
+| Daemon returns EOF | clangd process died | Pool auto-restarts with backoff (up to 3 retries); check stderr from daemon |
 | `compile_commands.json` missing | No build system configured | Run the generator or create it manually |
