@@ -52,10 +52,13 @@ echo "修复 lldb 的 libxml2 依赖 (Ubuntu 26.04 使用 libxml2-16)..."
 apt-get update -qq
 apt-get install -y --no-install-recommends libxml2-16
 
-# 创建兼容软链接（让 lldb 能找到旧的 libxml2.so.2）
-if [ ! -f "$LIB_PATH/libxml2.so.2" ]; then
-    ln -sf "$LIB_PATH"/libxml2.so.16* "$LIB_PATH/libxml2.so.2" || true
-    echo "libxml2.so.2 软链接创建完成"
+# 安全创建软链接（避免通配符导致的 "target is not a directory" 错误）
+LIBXML2_REAL=$(find "$LIB_PATH" -name 'libxml2.so.16*' -type f | head -n 1)
+if [ -n "$LIBXML2_REAL" ]; then
+    ln -sf "$LIBXML2_REAL" "$LIB_PATH/libxml2.so.2"
+    echo "libxml2.so.2 软链接创建完成 -> $LIBXML2_REAL"
+else
+    echo "警告: 未找到 libxml2.so.16* 文件"
 fi
 
 # 5. 刷新缓存与验证
