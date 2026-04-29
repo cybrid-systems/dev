@@ -7,9 +7,9 @@ export TZ=Asia/Shanghai
 
 echo "=== 开始安装所有系统依赖（Ubuntu 26.04 + GCC 15.2.0） ==="
 
-sudo apt-get update -qq
+sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
-    software-properties-common curl wget git
+    software-properties-common openssh-client curl wget git
 
 date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)Z" || true
 
@@ -29,7 +29,7 @@ sudo apt-get install -y --no-install-recommends \
     locales tzdata
 
 # === Ubuntu 26.04 专属修改：无需 PPA，直接安装 GCC 15.2 + libgccjit ===
-sudo apt-get update -qq
+sudo apt-get update
 
 sudo apt-get install -y --no-install-recommends \
     gcc-${GCC_VERSION} g++-${GCC_VERSION} \

@@ -4,7 +4,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 VERSION=9.1
 
-apt-get update -qq
+apt-get update
 apt-get install -y xvfb \
     libgtk2.0-0 \
     libglib2.0-0 \
