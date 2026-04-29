@@ -1,187 +1,204 @@
 #lang racket
-; pool.rkt — Pure Racket clangd pool
-;
-; Primary mode: persistent daemon process (one per project for clangd reuse).
-; Falls back to single-shot spawning if daemon can't start.
-;
-; Usage:
-;   (require "pool.rkt")
-;   (pool-ping "/path/to/project")
-;   (pool-goto "/path/to/project" "src/file.c" 75 12)
-
-(require json)
+(require racket/system racket/port json)
 
 (provide pool-ping pool-goto pool-refs pool-sym pool-doc
-         pool-stop pool-stop-all pool-list pool-status)
+         pool-stop pool-stop-all pool-list pool-status pool-health
+         pool-ping-async pool-goto-async pool-refs-async pool-sym-async pool-doc-async
+         pool-set-rate-limit)
 
-;; Resolve clangd.rkt relative to pool.rkt's own directory.
-;; Search: same dir, scripts/ subdir, or explicit path from load-relative.
+;; ─── Resolve clangd.rkt path ──────────────────────────────────────────────────
+
 (define CLANGD-SCRIPT
-  (path->string
-   (let* ([here (or (current-load-relative-directory)
-                    (current-directory))]
-          [maybe-dir (cond
-                      [(path? here) (path->string here)]
-                      [(string? here) here]
-                      [else (path->string (current-directory))])]
-          [candidates (list
-                       (build-path (path-only (string->path maybe-dir)) "clangd.rkt")
-                       (build-path (string->path maybe-dir) "clangd.rkt")
-                       (build-path (current-directory) "clangd.rkt")
-                       (build-path (current-directory) "scripts" "clangd.rkt"))])
-     (let loop ([cs candidates])
-       (cond [(null? cs) (car candidates)]
-             [(file-exists? (car cs)) (car cs)]
-             [else (loop (cdr cs))])))))
+  (let* ([here (or (current-load-relative-directory) (current-directory))]
+         [dir (if (path? here) (path->string here) (path->string (current-directory)))]
+         [cs (list (build-path (path-only (string->path dir)) "clangd.rkt")
+                   (build-path (string->path dir) "clangd.rkt")
+                   (build-path (current-directory) "clangd.rkt")
+                   (build-path (current-directory) "scripts" "clangd.rkt"))])
+    (path->string (let loop ([cs cs])
+                   (if (or (null? cs) (file-exists? (car cs))) (car cs) (loop (cdr cs)))))))
 
-;; ─── Daemon pool ────────────────────────────────────────────────────────────────
+;; ─── Structured JSON logging ────────────────────────────────────────────
 
-(define pool-processes (make-hash))  ; dir → {out inp ctrl alive}
+(define (log-json level component msg)
+  (define entry (hasheq 'time (current-seconds) 'level (format "~a" level)
+                        'component (format "~a" component) 'msg msg))
+  (fprintf (current-error-port) "~a\n" (jsexpr->string entry))
+  (flush-output (current-error-port)))
+
+;; ─── Rate limiter ──────────────────────────────────────────────────────
+
+(define rate-limits (make-hash))
+
+(define (pool-set-rate-limit dir n)
+  (hash-set! rate-limits dir (make-semaphore n)))
+
+(define (rate-acquire! dir)
+  (define sem (hash-ref rate-limits dir #f))
+  (when sem (semaphore-wait sem))
+  sem)
+
+;; ─── Daemon pool ───────────────────────────────────────────────────────
+
+(define pool-processes (make-hash))
 
 (define (spawn-daemon! dir)
-  (define racket-bin (find-executable-path "racket"))
-  (unless racket-bin (error 'pool "racket not found in PATH"))
-  ; process* returns (list stdout-input stdin-output pid stderr-input control).
-  ; Use absolute path for racket to avoid PATH resolution issues in subprocess.
+  (define racket-bin (or (find-executable-path "racket") (error 'pool "racket not found")))
   (define sp (process* (path->string racket-bin) CLANGD-SCRIPT "-d" dir "DAEMONMODE"))
-  (define dout (list-ref sp 0))    ; stdout from daemon (input-port)
-  (define dinp (list-ref sp 1))    ; stdin to daemon (output-port)
-  (define dpid (list-ref sp 2))
-  (define dstderr (list-ref sp 3))
-  (define dctrl-raw (list-ref sp 4))
-  ; process* returns a 1-arg control proc; wrap to match process convention ((dctrl) 'kill)
-  (define dctrl (lambda () dctrl-raw))
-  ;; Drain stderr in a background thread to prevent clangd blocking on full stderr buffer
-  (thread (lambda ()
-            (let loop ()
-              (define ln (read-line dstderr))
-              (unless (eof-object? ln) (loop)))))
-  ;; Wait for READY (with guard against EOF/timeout)
-  ;; Use a thread + channel since port->evt is not available in Racket CS
+  (define dout (list-ref sp 0)) (define dinp (list-ref sp 1))
+  (define dstderr (list-ref sp 3)) (define dctrl (list-ref sp 4))
+
+  (thread (lambda () (let loop () (define ln (read-line dstderr)) (unless (eof-object? ln) (loop)))))
+
   (define ready-chan (make-channel))
-  (define ready-thread
-    (thread (lambda ()
-      (define first-line
-        (with-handlers ([exn:fail? (lambda _ 'eof)])
-          (read-line dout)))
-      (channel-put ready-chan (or first-line 'eof)))))
+  (thread (lambda () (channel-put ready-chan (with-handlers ([exn:fail? (lambda _ 'eof)]) (read-line dout)))))
   (define ready-line (sync/timeout 10 ready-chan))
-  (unless ready-line
-    ((dctrl) 'kill)
-    (close-output-port dinp)
-    (close-input-port dout)
-    (error 'pool "clangd daemon for ~a timed out waiting for READY" dir))
-  (define trimmed (string-trim (if (eof-object? ready-line) "" (if (string? ready-line) ready-line ""))))
-  (unless (equal? trimmed "READY")
-    ((dctrl) 'kill)
-    (close-output-port dinp)
-    (close-input-port dout)
-    (error 'pool "clangd daemon for ~a failed to start: ~a" dir trimmed))
-  (hash-set! pool-processes dir (hasheq 'out dout 'inp dinp 'ctrl dctrl 'alive #t))
-  (fprintf (current-error-port) "[pool] daemon started for ~a\n" dir)
-  (flush-output (current-error-port))
-  (hasheq 'out dout 'inp dinp 'ctrl dctrl 'alive #t))
+  (unless (and (string? ready-line) (equal? (string-trim ready-line) "READY"))
+    (dctrl 'kill) (close-output-port dinp) (close-input-port dout)
+    (error 'pool "daemon for ~a failed" dir))
+
+  ;; Reader thread: dispatches daemon stdout to waiting channels (FIFO)
+  (define pending (box '()))
+  (define pending-lock (make-semaphore 1))
+  (define reader-stop (make-channel))
+  (thread
+    (lambda ()
+      (let loop ()
+        (unless (sync/timeout 0 reader-stop)
+          (with-handlers ([exn:fail? (lambda (e) (sleep 0.05))])
+            (define line (read-line dout))
+            (cond
+              [(eof-object? line)
+               (call-with-semaphore pending-lock
+                 (lambda () (for ([ch (in-list (unbox pending))]) (channel-put ch #f)) (set-box! pending '())))
+               (channel-put reader-stop 'stop)]
+              [else
+               (call-with-semaphore pending-lock
+                 (lambda () (when (pair? (unbox pending))
+                         (define ch (car (unbox pending)))
+                         (set-box! pending (cdr (unbox pending)))
+                         (channel-put ch line))))
+               (loop)]))))))
+
+  (define entry (make-hasheq))
+  (hash-set! entry 'daemon (list dout dinp dctrl reader-stop))
+  (hash-set! entry 'pending pending) (hash-set! entry 'lock pending-lock)
+  (hash-set! entry 'alive #t) (hash-set! entry 'start-time (current-seconds))
+  (hash-set! pool-processes dir entry)
+  (log-json 'info 'pool "daemon started")
+  (list dout dinp dctrl reader-stop))
 
 (define (ensure-daemon! dir)
-  (define existing (hash-ref pool-processes dir #f))
-  (cond
-    [existing
-     (define alive (hash-ref existing 'alive #f))
-     (if alive existing
-         (begin (hash-remove! pool-processes dir) (spawn-daemon! dir)))]
-    [else (spawn-daemon! dir)]))
+  (define entry (hash-ref pool-processes dir #f))
+  (cond [(and entry (hash-ref entry 'alive #f)) (hash-ref entry 'daemon)]
+        [else (when entry (hash-remove! pool-processes dir)) (spawn-daemon! dir)]))
 
-;; Max retries for daemon restart before giving up
-(define MAX-RESTART-RETRIES 3)
+;; ─── Send command ──────────────────────────────────────────────────────
 
-(define (send-command dir cmd-line)
-  (define daemon (ensure-daemon! dir))
-  (define inp (hash-ref daemon 'inp))
-  (define out (hash-ref daemon 'out))
-  (define ctrl (hash-ref daemon 'ctrl))
-  (fprintf inp "~a\n" cmd-line)
-  (flush-output inp)
-  (define resp (read-line out))
+(define (send-command dir cmd-line [timeout 5])
+  ;; Rate limit
+  (define rate-sem (rate-acquire! dir))
+
+  (define entry (hash-ref pool-processes dir #f))
+  (define daemon (if (and entry (hash-ref entry 'alive #f)) (hash-ref entry 'daemon) (ensure-daemon! dir)))
+  (set! entry (hash-ref pool-processes dir))
+
+  (define resp-chan (make-channel))
+  (call-with-semaphore (hash-ref entry 'lock)
+    (lambda () (set-box! (hash-ref entry 'pending) (append (unbox (hash-ref entry 'pending)) (list resp-chan)))))
+  (with-handlers ([exn? (lambda (e) #f)]) (fprintf (list-ref daemon 1) "~a\n" cmd-line) (flush-output (list-ref daemon 1)))
+
+  (define resp (sync/timeout timeout resp-chan))
+  (when rate-sem (semaphore-post rate-sem))
+
   (cond
-    [(eof-object? resp)
-     ;; Daemon died — mark dead and retry with backoff
-     (hash-set! daemon 'alive #f)
+    [(not resp)
+     (hash-set! entry 'alive #f)
      (let retry ([attempt 1])
        (define daemon2 (ensure-daemon! dir))
-       (define inp2 (hash-ref daemon2 'inp))
-       (define out2 (hash-ref daemon2 'out))
-       (fprintf inp2 "~a\n" cmd-line)
-       (flush-output inp2)
-       (define resp2 (read-line out2))
-       (cond
-         [(eof-object? resp2)
-          (if (< attempt MAX-RESTART-RETRIES)
-              (begin (sleep (* 0.5 attempt)) ; backoff: 0.5, 1.0, 1.5s
-                     (hash-set! daemon2 'alive #f)
-                     (retry (add1 attempt)))
-              (begin (fprintf (current-error-port)
-                      "[pool] daemon for ~a crashed ~a times, giving up\n" dir MAX-RESTART-RETRIES)
-                     #f))]
-         [else resp2]))]
-    [(string-prefix? (string-trim resp) "ERR:")
-     (fprintf (current-error-port) "[pool] daemon error: ~a\n" resp)
-     #f]
+       (define entry2 (hash-ref pool-processes dir))
+       (define inp2 (list-ref daemon2 1))
+       (define resp-chan2 (make-channel))
+       (call-with-semaphore (hash-ref entry2 'lock)
+         (lambda () (set-box! (hash-ref entry2 'pending) (append (unbox (hash-ref entry2 'pending)) (list resp-chan2)))))
+       (with-handlers ([exn? (lambda (e) #f)]) (fprintf inp2 "~a\n" cmd-line) (flush-output inp2))
+       (define resp2 (sync/timeout timeout resp-chan2))
+       (cond [(not resp2)
+              (if (< attempt 3)
+                  (let ([e (hash-ref pool-processes dir #f)])
+                    (sleep (* 0.5 attempt)) (when e (hash-set! e 'alive #f))
+                    (retry (add1 attempt)))
+                  (begin (log-json 'error 'pool "crash limit") #f))]
+             [else resp2]))]
     [else resp]))
 
-(define (send-json dir cmd-line)
-  (define line (send-command dir cmd-line))
-  (and line
-       (> (string-length line) 0)
-       (with-handlers ([exn:fail:read? (lambda _ #f)])
-         (with-input-from-string line read-json))))
+(define (send-json dir cmd-line [timeout 5])
+  (define line (send-command dir cmd-line timeout))
+  (and (string? line) (positive? (string-length line))
+       (with-handlers ([exn:fail:read? (lambda _ #f)]) (with-input-from-string line read-json))))
 
-;; ─── Public API (pool) ─────────────────────────────────────────────────────────
+;; ─── Public API ────────────────────────────────────────────────────────
 
-(define (pool-ping dir)
-  (define result (send-command dir "ping"))
-  (and (string? result) (string=? (string-trim result) "pong")))
+(define HEAVY-TIMEOUT 20)
 
-(define (pool-goto dir file line col)
-  (send-json dir (format "def ~a ~a ~a" file line col)))
-
-(define (pool-refs dir file line col)
-  (send-json dir (format "refs ~a ~a ~a" file line col)))
-
+(define (pool-ping dir) (equal? (send-command dir "ping") "pong"))
+(define (pool-goto dir file line col) (send-json dir (format "def ~a ~a ~a" file line col) HEAVY-TIMEOUT))
+(define (pool-refs dir file line col) (or (send-json dir (format "refs ~a ~a ~a" file line col) HEAVY-TIMEOUT) '()))
 (define (pool-sym dir query [file ""])
-  (if (string=? file "")
-      (send-json dir (format "sym ~a" query))
-      (send-json dir (format "sym ~a ~a" query file))))
+  (or (send-json dir (if (string=? file "") (format "sym ~a" query) (format "sym ~a ~a" query file))) '()))
+(define (pool-doc dir file) (or (send-json dir (format "doc ~a" file) HEAVY-TIMEOUT) '()))
 
-(define (pool-doc dir file)
-  (send-json dir (format "doc ~a" file)))
+;; ─── Health probe ──────────────────────────────────────────────────────
 
-;; ─── Pool lifecycle ─────────────────────────────────────────────────────────────
+(define (pool-health dir)
+  (define entry (hash-ref pool-processes dir #f))
+  (cond [(not entry) (hasheq 'dir dir 'alive #f 'reason "no entry")]
+        [(not (hash-ref entry 'alive #f)) (hasheq 'dir dir 'alive #f 'reason "dead")]
+        [else
+         (define q (length (unbox (hash-ref entry 'pending))))
+         (hasheq 'dir dir 'alive #t 'pending-queue q
+                 'uptime-sec (- (current-seconds) (hash-ref entry 'start-time 0)))]))
+
+;; ─── Async API (returns channel; use sync/timeout to collect) ──────────
+
+(define (send-command-async dir cmd-line)
+  (define entry (hash-ref pool-processes dir #f))
+  (define daemon (if (and entry (hash-ref entry 'alive #f)) (hash-ref entry 'daemon) (ensure-daemon! dir)))
+  (set! entry (hash-ref pool-processes dir))
+  (define resp-chan (make-channel))
+  (call-with-semaphore (hash-ref entry 'lock)
+    (lambda () (set-box! (hash-ref entry 'pending) (append (unbox (hash-ref entry 'pending)) (list resp-chan)))))
+  (with-handlers ([exn? (lambda (e) #f)]) (fprintf (list-ref daemon 1) "~a\n" cmd-line) (flush-output (list-ref daemon 1)))
+  resp-chan)
+
+(define (pool-ping-async dir) (send-command-async dir "ping"))
+(define (pool-goto-async dir file line col) (send-command-async dir (format "def ~a ~a ~a" file line col)))
+(define (pool-refs-async dir file line col) (send-command-async dir (format "refs ~a ~a ~a" file line col)))
+(define (pool-sym-async dir query [file ""])
+  (send-command-async dir (if (string=? file "") (format "sym ~a" query) (format "sym ~a ~a" query file))))
+(define (pool-doc-async dir file) (send-command-async dir (format "doc ~a" file)))
+
+;; ─── Lifecycle ─────────────────────────────────────────────────────────
 
 (define (pool-stop dir)
-  (define daemon (hash-ref pool-processes dir #f))
-  (when daemon
-    (define inp (hash-ref daemon 'inp))
-    (fprintf inp "quit\n")
-    (flush-output inp)
-    (close-output-port inp)
-    (close-input-port (hash-ref daemon 'out))
+  (define entry (hash-ref pool-processes dir #f))
+  (when entry
+    ;; Release all pending waiters before closing (prevents hung channels)
+    (define pending (hash-ref entry 'pending))
+    (for ([ch (in-list (unbox pending))]) (channel-put ch #f))
+    (set-box! pending '())
+    (define dm (hash-ref entry 'daemon))
+    (fprintf (list-ref dm 1) "quit\n") (flush-output (list-ref dm 1))
+    (close-output-port (list-ref dm 1)) (close-input-port (list-ref dm 0))
     (hash-remove! pool-processes dir)
-    (fprintf (current-error-port) "[pool] daemon stopped for ~a\n" dir)))
+    (log-json 'info 'pool "daemon stopped")))
 
-(define (pool-stop-all)
-  (for ([(dir _) (in-hash pool-processes)])
-    (pool-stop dir)))
+(define (pool-stop-all) (for ([(dir _) (in-hash pool-processes)]) (pool-stop dir)))
 
 (define (pool-list)
-  (hash-map pool-processes
-    (lambda (dir daemon)
-      (hasheq 'dir dir 'alive (hash-ref daemon 'alive #f)))))
+  (hash-map pool-processes (lambda (dir e) (hasheq 'dir dir 'alive (hash-ref e 'alive #f)))))
 
-(define (pool-status)
-  (hasheq 'total (hash-count pool-processes)
-          'projects (pool-list)))
+(define (pool-status) (hasheq 'total (hash-count pool-processes) 'projects (pool-list)))
 
 (module+ main
-  (displayln "pool.rkt — Racket clangd pool (daemon mode)")
-  (displayln "Usage: (pool-ping \"/path/to/project\") etc.")
-  (displayln "Pass project dir explicitly, or (current-directory) for a default."))
+  (displayln "pool.rkt — Racket clangd pool"))

@@ -238,7 +238,7 @@
               (hasheq 'uri uri
                       'languageId (language-id abs-file)
                       'text text)))
-    (hash-set! opened-documents uri (current-inexact-milliseconds))
+    (hash-set! opened-documents uri #t)
     (document-touch! uri)
     (enforce-document-limit! inp)
     ;; TODO: ideally wait for textDocument/publishDiagnostics instead of a fixed sleep
@@ -262,9 +262,12 @@
 (define (goto-definition! inp file line col base-dir)
   (define abs-file (resolve-path* file base-dir))
   (define uri (path->uri (string->path abs-file)))
+  ;; LSP uses 0-based positions; user provides 1-based from doc output
+  (define lsp-line (max 0 (sub1 line)))
+  (define lsp-col  (max 0 col))
   (define result (send-request inp 2 "textDocument/definition"
     (hasheq 'textDocument (hasheq 'uri uri)
-            'position (hasheq 'line line 'character col))))
+            'position (hasheq 'line lsp-line 'character lsp-col))))
   (cond
     [(list? result) (or (and (not (null? result)) (parse-location (car result)))
                         (hasheq 'file "" 'line 0))]
@@ -274,9 +277,12 @@
 (define (find-references! inp file line col base-dir)
   (define abs-file (resolve-path* file base-dir))
   (define uri (path->uri (string->path abs-file)))
+  ;; LSP uses 0-based positions; user provides 1-based from doc output
+  (define lsp-line (max 0 (sub1 line)))
+  (define lsp-col  (max 0 col))
   (define result (send-request inp 3 "textDocument/references"
     (hasheq 'textDocument (hasheq 'uri uri)
-            'position (hasheq 'line line 'character col)
+            'position (hasheq 'line lsp-line 'character lsp-col)
             'context (hasheq 'includeDeclaration #t))))
   (filter-map parse-location (or result '())))
 
@@ -419,13 +425,16 @@
   (define candidates
     (list "src/server.c" "src/main.c" "src/sds.c"
           "src/ae.c" "src/networking.c" "src/db.c"
-          "redis.c" "main.c" "server.c" "app.js" "app.py"))
+          "redis.c" "main.c" "server.c"
+          "include/rocksdb/status.h" "cache/cache.cc" "db/db_impl/db_impl.cc"
+          "src/backend/access/heap/heapam.c"
+          "app.js" "app.py"))
   (define (open* files)
     (for ([f (in-list files)])
       (define p (build-path dir f))
       (when (file-exists? p)
         (ensure-document! inp f dir)
-        (fprintf (current-error-port) "[warmup] opened ~a\n" f))))
+        (fprintf (current-error-port) "[warmup] opened ~a\n" f) (flush-output (current-error-port)))))
   ;; Try specific candidates first
   (open* candidates)
   ;; Auto-discover up to 3 .c/.h files under src/ or project root

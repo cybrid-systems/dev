@@ -11,7 +11,7 @@
 #   doom-lsp <project-dir> sym <query> [file]
 #   doom-lsp <project-dir> doc <file>
 #   doom-lsp <project-dir> ping
-#   doom-lsp <project-dir> batch < commands.txt
+#   doom-lsp <project-dir> batch
 #   doom-lsp <project-dir> daemon start|stop|status|restart
 #
 set -euo pipefail
@@ -22,12 +22,33 @@ RACKET="$(command -v racket || true)"
 CLANGD_SCRIPT="$SELF/clangd.rkt"
 DOOM_LSP_TIMEOUT="${DOOM_LSP_TIMEOUT:-60}"
 
-[ -n "$RACKET" ] || die "racket not found in PATH"
-[ -f "$CLANGD_SCRIPT" ] || die "clangd.rkt not found at $CLANGD_SCRIPT"
+[ -n "$RACKET" ] || { echo "ERROR: racket not found in PATH" >&2; exit 1; }
+[ -f "$CLANGD_SCRIPT" ] || { echo "ERROR: clangd.rkt not found at $CLANGD_SCRIPT" >&2; exit 1; }
 
 mkdir -p "$CACHE_DIR"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
+
+# ─── Signal handling ─────────────────────────────────────────────────────
+cleanup() {
+  local dir="${1:-}"
+  if [ -n "$dir" ]; then
+    daemon_stop "$dir" 2>/dev/null || true
+  else
+    # Clean all daemon files on exit
+    for f in "$CACHE_DIR"/*.pid; do
+      [ -f "$f" ] && kill "$(cat "$f")" 2>/dev/null || true
+    done
+    for f in "$CACHE_DIR"/*.keeper; do
+      [ -f "$f" ] && kill "$(cat "$f")" 2>/dev/null || true
+    done
+    rm -rf "$CACHE_DIR" 2>/dev/null || true
+  fi
+}
+
+# Trap signals to clean up orphan processes on unexpected exit
+trap cleanup EXIT TERM INT
+
 
 realpath_p() {
   case "$(uname -s)" in
@@ -38,38 +59,43 @@ realpath_p() {
 
 key() { echo "$1" | sha256sum 2>/dev/null | cut -c1-16 || echo "$1" | cksum 2>/dev/null | cut -d' ' -f1; }
 
-PID()    { echo "$CACHE_DIR/$(key "$1").pid"; }
-OUT()    { echo "$CACHE_DIR/$(key "$1").out"; }
-ERR()    { echo "$CACHE_DIR/$(key "$1").err"; }
-FIFO()   { echo "$CACHE_DIR/$(key "$1").fifo"; }
-KEEPER() { echo "$CACHE_DIR/$(key "$1").keeper"; }
+PID_F()     { echo "$CACHE_DIR/$(key "$1").pid"; }
+OUT_F()     { echo "$CACHE_DIR/$(key "$1").out"; }
+ERR_F()     { echo "$CACHE_DIR/$(key "$1").err"; }
+FIFO_P()    { echo "$CACHE_DIR/$(key "$1").fifo"; }
+KEEPER_F()  { echo "$CACHE_DIR/$(key "$1").keeper"; }
+READY_F()   { echo "$CACHE_DIR/$(key "$1").ready"; }
 
 # ─── Daemon lifecycle ──────────────────────────────────────────────────────────
 
 daemon_start() {
   local dir="$1"
-  local pid_f="$(PID "$dir")"
-  local out_f="$(OUT "$dir")"
-  local err_f="$(ERR "$dir")"
-  local fifo="$(FIFO "$dir")"
-  local keeper_f="$(KEEPER "$dir")"
+  local pid_f="$(PID_F "$dir")"
+  local out_f="$(OUT_F "$dir")"
+  local err_f="$(ERR_F "$dir")"
+  local fifo="$(FIFO_P "$dir")"
+  local keeper_f="$(KEEPER_F "$dir")"
+  local ready_f="$(READY_F "$dir")"
 
-  if [ -f "$pid_f" ]; then
-    local pid="$(cat "$pid_f")"
-    if kill -0 "$pid" 2>/dev/null; then
-      echo "daemon already running (pid $pid)"
-      return 0
+  # Kill stale processes first (both daemon and keeper)
+  for f in "$pid_f" "$keeper_f"; do
+    if [ -f "$f" ]; then
+      local old_pid="$(cat "$f" 2>/dev/null || echo 0)"
+      if [ "$old_pid" != "0" ]; then
+        kill "$old_pid" 2>/dev/null || true
+      fi
+      rm -f "$f"
     fi
-    rm -f "$pid_f"
-  fi
+  done
 
   echo -n "starting daemon for $(basename "$dir")... "
 
-  rm -f "$fifo"
+  # Clean all stale cache files for this project
+  rm -f "$fifo" "$ready_f"
+
   mkfifo "$fifo"
 
   # KEEPER: open the FIFO for writing in background so reads don't block.
-  # This keeps the FIFO write-end open. Commands are written to fifo separately.
   (sleep infinity) > "$fifo" &
   local keeper_pid=$!
   echo "$keeper_pid" > "$keeper_f"
@@ -77,27 +103,29 @@ daemon_start() {
   > "$out_f"
   > "$err_f"
 
-  # Start the daemon with FIFO as stdin
+  # Start daemon with FIFO as stdin
   nohup "$RACKET" "$CLANGD_SCRIPT" -d "$dir" DAEMONMODE < "$fifo" > "$out_f" 2> "$err_f" &
   local pid=$!
   echo "$pid" > "$pid_f"
+  rm -f "$ready_f"
 
   echo "pid $pid"
 }
 
 daemon_wait_ready() {
   local dir="$1"
-  local pid_f="$(PID "$dir")"
-  local out_f="$(OUT "$dir")"
-  local err_f="$(ERR "$dir")"
+  local pid_f="$(PID_F "$dir")"
+  local out_f="$(OUT_F "$dir")"
+  local err_f="$(ERR_F "$dir")"
+  local ready_f="$(READY_F "$dir")"
 
   [ -f "$pid_f" ] || die "daemon not started"
-
   local pid="$(cat "$pid_f")"
 
   local waited=0
   while [ "$waited" -lt "$DOOM_LSP_TIMEOUT" ]; do
     if grep -q "READY" "$out_f" 2>/dev/null; then
+      date +%s > "$ready_f"  # cache ready state
       echo "ready after ${waited}s"
       return 0
     fi
@@ -120,14 +148,14 @@ daemon_wait_ready() {
 
 daemon_stop() {
   local dir="$1"
-  local pid_f="$(PID "$dir")"
-  local fifo="$(FIFO "$dir")"
-  local keeper_f="$(KEEPER "$dir")"
+  local pid_f="$(PID_F "$dir")"
+  local fifo="$(FIFO_P "$dir")"
+  local keeper_f="$(KEEPER_F "$dir")"
+  local ready_f="$(READY_F "$dir")"
 
   if [ -f "$pid_f" ]; then
     local pid="$(cat "$pid_f")"
     if kill -0 "$pid" 2>/dev/null; then
-      # Write "quit" to the FIFO (the keeper holds it open, extra writes work)
       echo "quit" > "$fifo" 2>/dev/null || true
       sleep 2
       kill "$pid" 2>/dev/null || true
@@ -141,13 +169,13 @@ daemon_stop() {
     rm -f "$keeper_f"
   fi
 
-  rm -f "$fifo"
+  rm -f "$fifo" "$ready_f"
   echo "daemon stopped"
 }
 
 daemon_status() {
   local dir="$1"
-  local pid_f="$(PID "$dir")"
+  local pid_f="$(PID_F "$dir")"
   if [ ! -f "$pid_f" ]; then echo "stopped"; return; fi
   local pid="$(cat "$pid_f")"
   if kill -0 "$pid" 2>/dev/null; then
@@ -163,53 +191,62 @@ daemon_status() {
 daemon_send() {
   local dir="$1"
   local cmd="$2"
-  local pid_f="$(PID "$dir")"
-  local fifo="$(FIFO "$dir")"
-  local out_f="$(OUT "$dir")"
+  local pid_f="$(PID_F "$dir")"
+  local fifo="$(FIFO_P "$dir")"
+  local out_f="$(OUT_F "$dir")"
 
+  # Check daemon is alive
   [ -f "$pid_f" ] || die "daemon not started"
+  local pid="$(cat "$pid_f")"
+  kill -0 "$pid" 2>/dev/null || die "daemon pid $pid is dead"
   [ -p "$fifo" ]  || die "daemon fifo not found"
 
-  local before_size=$(stat -c%s "$out_f" 2>/dev/null || stat -f%z "$out_f" 2>/dev/null || echo 0)
+  local before_lines=$(wc -l < "$out_f" 2>/dev/null || echo 0)
 
-  # Write command to FIFO
+  # Write command to FIFO (may block forever if no reader)
   echo "$cmd" > "$fifo"
 
-  # Poll for response (new content in out_f)
-  local waited=0
-  local max_poll_ms=$((DOOM_LSP_TIMEOUT * 1000))
-  local polled_ms=0
-  while [ "$polled_ms" -lt "$max_poll_ms" ]; do
-    local after_size=$(stat -c%s "$out_f" 2>/dev/null || stat -f%z "$out_f" 2>/dev/null || echo 0)
-    if [ "$after_size" -gt "$before_size" ]; then
-      local line=$(tail -1 "$out_f")
-      echo "$line"
+  # Poll for response using adaptive backoff (fast → slow)
+  local max_checks=$((DOOM_LSP_TIMEOUT * 100))
+  local check=0
+  while [ "$check" -lt "$max_checks" ]; do
+    local after_lines=$(wc -l < "$out_f" 2>/dev/null || echo 0)
+    if [ "$after_lines" -gt "$before_lines" ]; then
+      sleep 0.01  # let write finish
+      tail -1 "$out_f"
       return 0
     fi
-    local pid="$(cat "$pid_f" 2>/dev/null || echo 0)"
-    if [ "$pid" != "0" ] && ! kill -0 "$pid" 2>/dev/null; then
-      die "daemon died"
+    kill -0 "$pid" 2>/dev/null || die "daemon died"
+    # Adaptive: check every 10ms (0-100ms), 50ms (100ms-1s), then 100ms
+    if [ "$check" -lt 10 ]; then
+      sleep 0.01; check=$((check + 1))
+    elif [ "$check" -lt 28 ]; then
+      sleep 0.05; check=$((check + 5))
+    else
+      sleep 0.1; check=$((check + 10))
     fi
-    sleep 0.1
-    polled_ms=$((polled_ms + 100))
   done
 
-  die "timeout waiting for response"
+  die "timeout after ${DOOM_LSP_TIMEOUT}s"
 }
 
 ensure_daemon() {
   local dir="$1"
-  local pid_f="$(PID "$dir")"
-  local out_f="$(OUT "$dir")"
+  local pid_f="$(PID_F "$dir")"
+  local out_f="$(OUT_F "$dir")"
+  local ready_f="$(READY_F "$dir")"
 
+  # Check if daemon is alive and ready
   if [ -f "$pid_f" ]; then
     local pid="$(cat "$pid_f")"
     if kill -0 "$pid" 2>/dev/null; then
-      # Check if ready
-      if grep -q "READY" "$out_f" 2>/dev/null; then
+      if [ -f "$ready_f" ] || grep -q "READY" "$out_f" 2>/dev/null; then
+        date +%s > "$ready_f" 2>/dev/null || true
         return 0
       fi
     fi
+    # Stale PID — clean up
+    rm -f "$pid_f"
   fi
 
   daemon_start "$dir"
@@ -225,12 +262,13 @@ if [ $# -lt 2 ]; then
   echo "  def  <file> <line> <col>     Go to definition"
   echo "  refs <file> <line> <col>     Find references"
   echo "  sym  <query> [file]          Search symbols"
+  echo "  summary <file>               Compact symbol listing (agent-friendly)"
   echo "  doc  <file>                  List symbols in file"
   echo "  ping                         Health check"
   echo "  batch                        Batch commands from stdin"
   echo "  daemon start|stop|status|restart"
   echo ""
-  echo "Env: DOOM_LSP_TIMEOUT (default 60)"
+  echo "Env: DOOM_LSP_TIMEOUT (default $DOOM_LSP_TIMEOUT)"
   exit 1
 fi
 
@@ -258,6 +296,22 @@ case "$CMD" in
   def|refs|sym|doc)
     ensure_daemon "$PROJECT_DIR"
     daemon_send "$PROJECT_DIR" "$CMD $*"
+    ;;
+
+  summary)
+    ensure_daemon "$PROJECT_DIR"
+    file="${1:-}"
+    [ -z "$file" ] && { echo "Usage: doom-lsp <dir> summary <file>"; exit 1; }
+    daemon_send "$PROJECT_DIR" "doc $file" | "$RACKET" -e "
+(require json)
+(define d (with-input-from-string (read-line) read-json))
+(define kinds '(#f #f #f #f cls struct #f #f field #f #f #f fn var))
+(printf \"~a symbols:\n\" (length d))
+(for ([x (in-list d)])
+  (define k (hash-ref x 'kind 0))
+  (define kl (if (and k (< k (length kinds))) (list-ref kinds k) '?))
+  (printf \"  ~a ~a @ ~a\n\" kl (hash-ref x 'name) (hash-ref x 'line)))
+" 2>/dev/null
     ;;
 
   batch)
