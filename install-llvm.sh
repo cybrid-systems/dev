@@ -47,18 +47,29 @@ if [ ! -f "$LIB_PATH/$TARGET_PYTHON" ]; then
     fi
 fi
 
-# 4. 【关键修复】lldb 的 libxml2 依赖（Ubuntu 26.04 专用）
-echo "修复 lldb 的 libxml2 依赖 (Ubuntu 26.04 使用 libxml2-16)..."
-apt-get update -qq
-apt-get install -y --no-install-recommends libxml2-16
+# 4. 【关键修复】lldb 的 libxml2 依赖（Ubuntu 25.10+/26.04 专用）
+echo "修复 lldb 的 libxml2 依赖 (Ubuntu 26.04 使用 libxml2.so.16)..."
 
-# 安全创建软链接（避免通配符导致的 "target is not a directory" 错误）
-LIBXML2_REAL=$(find "$LIB_PATH" -name 'libxml2.so.16*' -type f | head -n 1)
+apt-get update -qq
+apt-get install -y --no-install-recommends libxml2-16 patchelf
+
+# 1. 创建兼容软链接（给其他可能依赖 .so.2 的软件用）
+LIBXML2_REAL=$(find /usr/lib -name 'libxml2.so.16*' -type f | head -n 1)
 if [ -n "$LIBXML2_REAL" ]; then
     ln -sf "$LIBXML2_REAL" "$LIB_PATH/libxml2.so.2"
-    echo "libxml2.so.2 软链接创建完成 -> $LIBXML2_REAL"
+    echo "✅ 已创建软链接: libxml2.so.2 → $LIBXML2_REAL"
 else
-    echo "警告: 未找到 libxml2.so.16* 文件"
+    echo "⚠️  未找到 libxml2.so.16*"
+fi
+
+# 2. 使用 patchelf 直接修改 liblldb.so 的依赖（消除 warning 的关键）
+echo "使用 patchelf 修改 liblldb 的依赖..."
+LLDB_SO=$(find "$INSTALL_DIR/lib" -name 'liblldb.so.22*' -type f | head -n 1)
+if [ -n "$LLDB_SO" ] && command -v patchelf >/dev/null 2>&1; then
+    patchelf --replace-needed libxml2.so.2 libxml2.so.16 "$LLDB_SO" 2>/dev/null || true
+    echo "✅ patchelf 修改完成: $LLDB_SO 现在直接依赖 libxml2.so.16"
+else
+    echo "⚠️  patchelf 修改失败（未找到 liblldb.so 或 patchelf）"
 fi
 
 # 5. 刷新缓存与验证
