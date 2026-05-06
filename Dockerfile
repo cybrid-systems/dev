@@ -1,5 +1,5 @@
 FROM ubuntu:26.04 AS base
-ENV GCC_VERSION=15
+ENV GCC_VERSION=16
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=en_US.UTF-8
 ENV TZ=Asia/Shanghai
