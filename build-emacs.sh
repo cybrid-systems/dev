@@ -2,7 +2,7 @@
 set -euo pipefail
 
 VERSION=30.2
-GCC_VERSION=${GCC_VERSION:-15}
+GCC_VERSION=${GCC_VERSION:-16}
 export HOME=/home/dev
 
 cd /tmp

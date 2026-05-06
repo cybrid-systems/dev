@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-GCC_VERSION=${GCC_VERSION:-15}
+GCC_VERSION=${GCC_VERSION:-16}
 export DEBIAN_FRONTEND=noninteractive
 export TZ=Asia/Shanghai
 
