@@ -140,7 +140,7 @@
 (define (stop-reader!)
   (channel-put reader-stop-channel 'stop))
 
-(define REQUEST-TIMEOUT-SEC 20)
+(define REQUEST-TIMEOUT-SEC 120)
 
 (define (send-request inp id method params)
   (define resp-chan (make-channel))

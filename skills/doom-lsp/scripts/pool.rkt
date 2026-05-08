@@ -13,10 +13,15 @@
          [dir (if (path? here) (path->string here) (path->string (current-directory)))]
          [cs (list (build-path (path-only (string->path dir)) "clangd.rkt")
                    (build-path (string->path dir) "clangd.rkt")
+                   (build-path (string->path dir) "scripts" "clangd.rkt")
                    (build-path (current-directory) "clangd.rkt")
-                   (build-path (current-directory) "scripts" "clangd.rkt"))])
+                   (build-path (current-directory) "scripts" "clangd.rkt")
+                   (build-path (current-directory) "skills" "doom-lsp" "scripts" "clangd.rkt")
+                   (build-path (current-directory) ".." "doom-lsp" "scripts" "clangd.rkt"))])
     (path->string (let loop ([cs cs])
-                   (if (or (null? cs) (file-exists? (car cs))) (car cs) (loop (cdr cs)))))))
+                   (cond [(null? cs) (error 'pool "clangd.rkt not found")]
+                         [(file-exists? (car cs)) (car cs)]
+                         [else (loop (cdr cs))])))))
 
 ;; ─── Structured JSON logging ────────────────────────────────────────────
 
