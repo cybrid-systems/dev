@@ -5,15 +5,12 @@ GCC_VERSION=${GCC_VERSION:-16}
 export DEBIAN_FRONTEND=noninteractive
 export TZ=Asia/Shanghai
 
-echo "=== 开始安装所有系统依赖（Ubuntu 26.04 + GCC 15.2.0） ==="
+echo "=== 开始安装所有系统依赖（Ubuntu 26.04 + GCC ${GCC_VERSION}） ==="
 
-sudo apt-get update
-sudo apt-get install -y --no-install-recommends \
-    software-properties-common openssh-client curl wget git
-
-date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)Z" || true
-
-sudo apt-get install -y --no-install-recommends \
+# === 一次性安装所有基础工具（包含 curl wget git）===
+apt-get update
+apt-get install -y --no-install-recommends \
+    software-properties-common openssh-client curl wget git \
     build-essential apt-utils sudo gosu htop iotop tree less \
     vim tmux zsh ack-grep pandoc bear net-tools bc libelf-dev libncurses-dev \
     libssl-dev libxml2-dev libedit-dev libz-dev \
@@ -28,25 +25,28 @@ sudo apt-get install -y --no-install-recommends \
     texinfo flex bison libgmp3-dev libmpfr-dev libmpc-dev \
     locales tzdata
 
-# === Ubuntu 26.04 专属修改：无需 PPA，直接安装 GCC 15.2 + libgccjit ===
-sudo apt-get update
+# 同步系统时间（容错处理）
+date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)Z" || true
 
-sudo apt-get install -y --no-install-recommends \
+# === Ubuntu 26.04 专属：直接安装 GCC ${GCC_VERSION} + libgccjit ===
+apt-get update
+apt-get install -y --no-install-recommends \
     gcc-${GCC_VERSION} g++-${GCC_VERSION} \
     libgccjit-${GCC_VERSION}-dev
 
-sudo update-alternatives --remove-all gcc || true
-
-sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 \
+update-alternatives --remove-all gcc || true
+update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 \
     --slave /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION}
-sudo update-alternatives --set gcc /usr/bin/gcc-${GCC_VERSION}
+update-alternatives --set gcc /usr/bin/gcc-${GCC_VERSION}
 
-sudo locale-gen en_US.UTF-8
-echo "LANG=en_US.UTF-8" | sudo tee /etc/default/locale
-sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-sudo dpkg-reconfigure --frontend noninteractive tzdata
+locale-gen en_US.UTF-8
+echo "LANG=en_US.UTF-8" | tee /etc/default/locale
+ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+dpkg-reconfigure --frontend noninteractive tzdata
 
 git config --global merge.conflictstyle diff3
 
-sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-echo "=== 所有依赖安装完成（Ubuntu 26.04 + GCC 15.2.0 + libgccjit 已就绪） ==="
+# 清理
+apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+echo "=== 所有依赖安装完成（Ubuntu 26.04 + GCC ${GCC_VERSION} + libgccjit 已就绪） ==="
