@@ -50,8 +50,7 @@ FROM emacs AS final
 # Already root, stay as root for ENTRYPOINT
 
 # Install gosu for proper privilege drop and TTY handling (multi-arch compatible)
-RUN apt-get update && apt-get install -y curl gnupg && \
-    ARCH="$(dpkg --print-architecture)" && \
+RUN ARCH="$(dpkg --print-architecture)" && \
     curl -o /usr/local/bin/gosu -SL "https://github.com/tianon/gosu/releases/download/1.17/gosu-${ARCH}" && \
     curl -o /usr/local/bin/gosu.asc -SL "https://github.com/tianon/gosu/releases/download/1.17/gosu-${ARCH}.asc" && \
     export GNUPGHOME="$(mktemp -d)" && \
@@ -60,7 +59,7 @@ RUN apt-get update && apt-get install -y curl gnupg && \
     rm -rf "${GNUPGHOME}" /usr/local/bin/gosu.asc && \
     chmod +x /usr/local/bin/gosu && \
     /usr/local/bin/gosu nobody true && \
-    apt-get purge -y --auto-remove curl gnupg && rm -rf /var/lib/apt/lists/*
+    apt-get purge -y --auto-remove  && rm -rf /var/lib/apt/lists/*
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
