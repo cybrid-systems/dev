@@ -85,20 +85,16 @@ curl -fsSL -o "$INSTALLER" "https://download.racket-lang.org/releases/9.1/instal
 
 chmod +x "$INSTALLER"
 
-# Pre-create dest dir and give ownership to dev user (avoids root + "petite" error)
-sudo mkdir -p /usr/local/racket
-sudo chown dev:dev /usr/local/racket
+# 安装（最干净的方式）
+sudo ./"$INSTALLER" --unix-style --dest /usr/local/racket
 
-# Run installer as dev user (non-root) — this is the key fix
-su - dev -c "cd /tmp && ./$INSTALLER --unix-style --dest /usr/local/racket"
-
-# Create global symlinks (as root)
+# 创建全局软链接（racket、raco 等命令直接可用）
 sudo ln -sf /usr/local/racket/bin/* /usr/local/bin/
 
 rm -f "$INSTALLER"
-echo "Racket 9.1 安装完成"
+echo "Racket 9.1 安装完成 ✓"
 
-# User-level packages (already correct)
+# 以dev用户运行raco pkg install（用户级，避免root下petite加载问题）
 su - dev -c "raco pkg install --auto --skip-installed fmt racket-langserver"
 
 echo "=== 语言工具安装完成 ==="
