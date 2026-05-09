@@ -6,7 +6,7 @@ ENV TZ=Asia/Shanghai
 ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
-RUN apt-get update && apt-get install -y sudo && rm -rf /var/lib/apt/lists/
+RUN apt-get update && apt-get install -y sudo
 RUN EXISTING_GROUP=$(getent group ${USER_GID} | cut -d: -f1 || true) && \
     if [ -n "${EXISTING_GROUP}" ] && [ "${EXISTING_GROUP}" != "${USERNAME}" ]; then \
         groupmod -n ${USERNAME} ${EXISTING_GROUP}; \
@@ -50,7 +50,8 @@ FROM emacs AS final
 # Already root, stay as root for ENTRYPOINT
 
 # Install gosu for proper privilege drop and TTY handling (multi-arch compatible)
-RUN ARCH="$(dpkg --print-architecture)" && \
+RUN apt-get update && \
+    ARCH="$(dpkg --print-architecture)" && \
     curl -o /usr/local/bin/gosu -SL "https://github.com/tianon/gosu/releases/download/1.17/gosu-${ARCH}" && \
     curl -o /usr/local/bin/gosu.asc -SL "https://github.com/tianon/gosu/releases/download/1.17/gosu-${ARCH}.asc" && \
     export GNUPGHOME="$(mktemp -d)" && \
@@ -58,8 +59,7 @@ RUN ARCH="$(dpkg --print-architecture)" && \
     gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu && \
     rm -rf "${GNUPGHOME}" /usr/local/bin/gosu.asc && \
     chmod +x /usr/local/bin/gosu && \
-    /usr/local/bin/gosu nobody true && \
-    apt-get purge -y --auto-remove  && rm -rf /var/lib/apt/lists/*
+    /usr/local/bin/gosu nobody true
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
