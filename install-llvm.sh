@@ -4,7 +4,6 @@ set -euo pipefail
 # 1. 架构检测与变量设置
 ARCH=$(uname -m)
 VERSION="22.1.5"
-VERSION_ENCODED="$VERSION%2F" # 编码斜杠
 TARGET_PYTHON="libpython3.11.so.1.0"
 INSTALL_DIR="/usr/local"
 LIB_PATH=""
@@ -23,10 +22,11 @@ else
     exit 1
 fi
 
-URL="https://mirrors.tuna.tsinghua.edu.cn/github-release/llvm/llvm-project/LLVM%20${VERSION_ENCODED}/${FILENAME}"
+# 官方 GitHub Releases 下载地址
+URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${VERSION}/${FILENAME}"
 
 # 2. 下载与安装
-echo "正在从清华镜像下载 LLVM ${VERSION}..."
+echo "正在从 LLVM 官方 GitHub 下载 LLVM ${VERSION}..."
 wget -c "$URL" -O "/tmp/$FILENAME"
 
 echo "正在解压并安装到 ${INSTALL_DIR}..."
@@ -49,7 +49,6 @@ fi
 
 # 4. 【关键修复】lldb 的 libxml2 依赖（Ubuntu 25.10+/26.04 专用）
 echo "修复 lldb 的 libxml2 依赖 (Ubuntu 26.04 使用 libxml2.so.16)..."
-
 apt-get update -qq
 apt-get install -y --no-install-recommends libxml2-16 patchelf
 
@@ -59,7 +58,7 @@ if [ -n "$LIBXML2_REAL" ]; then
     ln -sf "$LIBXML2_REAL" "$LIB_PATH/libxml2.so.2"
     echo "✅ 已创建软链接: libxml2.so.2 → $LIBXML2_REAL"
 else
-    echo "⚠️  未找到 libxml2.so.16*"
+    echo "⚠️ 未找到 libxml2.so.16*"
 fi
 
 # 2. 使用 patchelf 直接修改 liblldb.so 的依赖（消除 warning 的关键）
@@ -69,12 +68,11 @@ if [ -n "$LLDB_SO" ] && command -v patchelf >/dev/null 2>&1; then
     patchelf --replace-needed libxml2.so.2 libxml2.so.16 "$LLDB_SO" 2>/dev/null || true
     echo "✅ patchelf 修改完成: $LLDB_SO 现在直接依赖 libxml2.so.16"
 else
-    echo "⚠️  patchelf 修改失败（未找到 liblldb.so 或 patchelf）"
+    echo "⚠️ patchelf 修改失败（未找到 liblldb.so 或 patchelf）"
 fi
 
 # 5. 刷新缓存与验证
 ldconfig
-
 echo "---------------------------------------"
 if command -v clang >/dev/null; then
     echo "✅ LLVM $VERSION 安装完成！"
