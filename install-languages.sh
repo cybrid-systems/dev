@@ -43,12 +43,12 @@ cat >>/home/dev/.zshrc <<'EOF'
 
 # pnpm
 export PNPM_HOME="/home/dev/.local/share/pnpm"
-export PATH="$PNPM_HOME:$PATH"
+export PATH="$PNPM_HOME/bin:$PATH"
 EOF
 
 # 当前 shell 也生效
 export PNPM_HOME="/home/dev/.local/share/pnpm"
-export PATH="$PNPM_HOME:$PATH"
+export PATH="$PNPM_HOME/bin:$PATH"
 
 pnpm --version
 echo "✅ Node.js + pnpm installed successfully"
