@@ -20,6 +20,7 @@ SELF="$(cd "$(dirname "$0")" && pwd)"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/doom-lsp"
 RACKET="$(command -v racket || true)"
 CLANGD_SCRIPT="$SELF/clangd.rkt"
+RACKET_LSP_SCRIPT="$SELF/racket-lsp.rkt"
 DOOM_LSP_TIMEOUT="${DOOM_LSP_TIMEOUT:-60}"
 
 [ -n "$RACKET" ] || { echo "ERROR: racket not found in PATH" >&2; exit 1; }
@@ -294,6 +295,13 @@ case "$CMD" in
     ;;
 
   def|refs|sym|doc)
+    # Check if file is a Racket file → use racket-lsp.rkt
+    case "$1" in
+      *.rkt|*.scrbl|*.rktl|*.rktd)
+        racket "$RACKET_LSP_SCRIPT" "$PROJECT_DIR" "$CMD" "$@"
+        exit $?
+        ;;
+    esac
     ensure_daemon "$PROJECT_DIR"
     daemon_send "$PROJECT_DIR" "$CMD $*"
     ;;
