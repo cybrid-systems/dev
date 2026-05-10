@@ -1,50 +1,52 @@
 ---
 name: doom-lsp
-description: Pure Racket C/C++ code analysis via clangd LSP with a persistent daemon pool. Use for jump-to-definition, find-all-references, workspace-symbol-search, file-structure-summary, and health probes in any C/C++ project. No Python, no TCP, no PTY. Designed for large projects (Redis, RocksDB, Postgres, Linux kernel).
+description: C/C++ and Racket code analysis via LSP (clangd + racket-langserver) with a persistent daemon pool. Use for jump-to-definition, symbol search, file structure summary, and health probes. No Python, no TCP, no PTY.
 ---
 
 # doom-lsp
 
-Pure Racket C/C++ code analysis via clangd LSP — no Python, no TCP, no PTY.
+Multi-language LSP analysis — C/C++ via clangd, Racket via racket-langserver. No Python, no TCP, no PTY.
 
 ## Quick Start
 
 ```bash
 # Prerequisites: clangd in PATH + compile_commands.json at project root
-racket scripts/generate_compile_commands.rkt /path/to/project
+racket scripts/generate_compile_commands.rkt /path/to/cpp-project
 
-# Shell: daemon auto-managed
+# C/C++ analysis (auto-detected from file extension)
 ./scripts/doom-lsp.sh /path/to/redis def src/db.c 213 5
 # → {"file":"/path/to/redis/src/server.h","line":3152}
 
-./scripts/doom-lsp.sh /path/to/redis refs src/db.c 213 5
-# → [{"file":"/path/to/redis/src/db.c","line":213},...]  (24 refs)
-
 ./scripts/doom-lsp.sh /path/to/redis sym lookupKey
-# → [{"file":"/path/to/redis/src/db.c","line":193,"name":"lookupKeyWrite"},...]  (8 symbols)
+# → [{"file":"/path/to/redis/src/db.c","line":193,"name":"lookupKeyWrite"},...]
 
-./scripts/doom-lsp.sh /path/to/redis summary src/db.c
-# → "93 symbols:\n  fn getKVStoreIndexForKey @ 39\n  fn lookupKey @ 93\n  fn dbAdd @ 213\n..."
+# Racket analysis (.rkt files auto-detected)
+./scripts/doom-lsp.sh /path/to/racket-project doc src/core.rkt
+# → [{"name":"eval-expr","line":1},{"name":"make-env","line":1},...]  (335 symbols)
 
-# Pool API (Racket / agent scripts)
-racket -e '(require "scripts/pool.rkt")
-  (pool-ping "/path/to/redis")
-  (pool-goto "/path/to/redis" "src/db.c" 213 5)
-  (pool-refs "/path/to/redis" "src/db.c" 213 5)
-  (pool-sym "/path/to/redis" "lookupKey")
-  (pool-health "/path/to/redis")'
+./scripts/doom-lsp.sh /path/to/racket-project summary src/core.rkt
+# → "335 symbols:
+#       provide @ 1
+#       eval-expr @ 1
+#       make-env @ 1
+#       ..."
+
+# Daemon mode (persistent, subsequent queries <1s)
+racket scripts/racket-lsp.rkt /path/to/project DAEMONMODE
+# Reads commands from stdin, outputs READY + JSON
 ```
 
 ## Files
 
-| File | Purpose | Lines |
-|------|---------|-------|
-| `scripts/doom-query.sh` | **Agent-friendly interface** — high-level queries: `callers`, `def`, `find`, `summary`, `context`, `ping` | 200 |
-| `scripts/doom-lsp.sh` | Shell wrapper — auto-manages daemon lifecycle, trap cleanup, zero Python | 329 |
-| `scripts/pool.rkt` | **Primary agent API** — async reader-thread pool, health, JSON log | 204 |
-| `scripts/clangd.rkt` | LSP client — daemon mode, warmup, def/refs/sym/doc commands | 518 |
-| `scripts/generate_compile_commands.rkt` | CMake/Make compile_commands.json generator | 120 |
-| `scripts/benchmark.rkt` | Latency/throughput benchmark | 148 |
+| File | Purpose | Lines | Lang |
+|------|---------|-------|------|
+| `scripts/doom-query.sh` | **Agent-friendly interface** — high-level queries | 200 | Shell |
+| `scripts/doom-lsp.sh` | Shell wrapper — auto-manages daemon lifecycle, file type dispatch | 337 | Shell |
+| `scripts/pool.rkt` | **Primary agent API** — async reader-thread pool | 204 | Racket |
+| `scripts/clangd.rkt` | C/C++ LSP client (clangd) — daemon mode | 518 | Racket |
+| `scripts/racket-lsp.rkt` | **Racket LSP client** (racket-langserver) — daemon mode | 166 | Racket |
+| `scripts/generate_compile_commands.rkt` | CMake/Make compile_commands.json generator | 120 | Racket |
+| `scripts/benchmark.rkt` | Latency/throughput benchmark | 148 | Racket |
 
 ## ⚠️ Critical gotchas
 
@@ -75,49 +77,75 @@ Always pass `def` a **call site** location, not the definition line.
 ./scripts/doom-lsp.sh <project-dir> <command> [args...]
 ```
 
-| Command | Example | Description | Latency |
-|---------|---------|-------------|---------|
-| `ping` | `ping` | Health check | <1ms |
-| `def` | `def src/db.c 213 5` | Go to definition. **Use at a call site, not the definition itself.** | 2ms |
-| `refs` | `refs src/db.c 213 5` | Find references. **Unreliable — use grep fallback.** | 7ms+ |
-| `sym` | `sym lookupKey` | Search symbols by name. **Most reliable command.** | 1ms |
-| `doc` | `doc src/db.c` | File symbols (JSON) | 10ms |
-| `summary` | `summary src/db.c` | Compact listing (agent-friendly) | 10ms |
-| `batch` | `batch < cmds.txt` | Sequential commands via stdin | — |
+Auto-detects language from file extension:
+- `.c`, `.cpp`, `.h` → clangd (C/C++)
+- `.rkt`, `.scrbl`, `.rktl`, `.rktd` → racket-langserver (Racket)
+- All others → clangd (C/C++)
 
-## Agent-friendly interface
+| Command | Example | Description | Latency (C++) | Latency (Racket) |
+|---------|---------|-------------|---------------|------------------|
+| `ping` | `ping` | Health check | <1ms | <1ms |
+| `def` | `def src/file.c 213 5` | Go to definition | 2ms | 4-8s* |
+| `refs` | `refs src/file.c 213 5` | Find references | 7ms+ | — |
+| `sym` | `sym lookupKey` | Search symbols | 1ms | 4-8s* |
+| `doc` | `doc src/file.rkt` | File symbols (JSON) | 10ms | 4-8s* |
+| `summary` | `summary src/file.rkt` | Compact listing | 10ms | 4-8s* |
 
-For **most common agent tasks**, use `doom-query.sh` — it handles daemon lifecycle, warmup, JSON stripping, and grep fallback internally:
+*Racket single-shot mode includes ~3-4s racket-langserver startup. Use **daemon mode** (`DAEMONMODE`) for sub-second queries.
+
+## Racket LSP Details
+
+The Racket LSP client (`racket-lsp.rkt`) supports both CLI mode and persistent daemon mode.
+
+### CLI Mode (single-shot)
 
 ```bash
-./scripts/doom-query.sh <project-dir> <command> [args...]
+# Start racket-langserver, send one query, exit
+racket scripts/racket-lsp.rkt <project-dir> ping
+racket scripts/racket-lsp.rkt <project-dir> doc <file.rkt>
+racket scripts/racket-lsp.rkt <project-dir> def <file.rkt> <line> <col>
+racket scripts/racket-lsp.rkt <project-dir> sym <query>
 ```
 
-| Command | What it does | Example |
-|---------|-------------|---------|
-| `callers <symbol>` | All call sites (grep-backed, always works) | `doom-query /redis callers processInputBuffer` |
-| `def <symbol>` | Quick definition lookup | `doom-query /redis def lookupKey` |
-| `find <symbol>` | Full investigation: def + all callers | `doom-query /redis find processInputBuffer` |
-| `summary <file>` | File structure overview | `doom-query /redis summary src/server.c` |
-| `context <file> <line>` | Show code around a line | `doom-query /redis context src/db.c 93` |
-| `ping` | Health check | `doom-query /redis ping` |
+### Daemon Mode (persistent)
 
-Output is clean JSON with call sites classified as `call` / `definition` / `comment`:
-
-```json
-{
-  "symbol": "processInputBuffer",
-  "definition_at": "/path/to/redis/src/networking.c:2523",
-  "call_sites": [
-    {"file":".../networking.c","line":2513,"text":"    return processInputBuffer(c);","kind":"call"},
-    {"file":".../networking.c","line":2713,"text":"    if (processInputBuffer(c) == C_ERR)","kind":"call"},
-    {"file":".../server.h","line":2491,"text":"int processInputBuffer(client *c);","kind":"definition"},
-    {"file":".../blocked.c","line":139,"text":" * processInputBuffer() checks that","kind":"comment"}
-  ]
-}
+```bash
+# Start daemon (reads commands from stdin, writes JSON to stdout)
+echo "doc src/main.rkt" | racket scripts/racket-lsp.rkt /path/to/project DAEMONMODE
 ```
 
-**Agent guideline**: When asked "find callers of X", use `callers`. When asked "what does this symbol do?", use `def` then `context` to read the definition.
+Daemon protocol (matching clangd.rkt):
+- Outputs `READY` on first line when initialized
+- Each subsequent line is a command
+- JSON response is written to stdout
+
+### LSP Handshake Pipeline
+
+```
+Client                     racket-langserver
+  │                              │
+  ├─ initialize (request) ──────►│
+  │◄─── initialize result ──────┤
+  ├─ initialized (notify) ──────►│
+  │                              │
+  ├─ didOpen (notify) ──────────►│
+  ├─ documentSymbol (request) ──►│
+  │◄─── symbols result ─────────┤
+  ├─ didClose (notify) ─────────►│
+  │                              │
+```
+
+### Key Implementation Details
+
+| Aspect | Detail |
+|--------|--------|
+| LSP Server | `racket -l racket-langserver` (`/usr/local/bin/racket`) |
+| JSON-RPC | uses `hasheq` for JSON; `write-json` for serialization |
+| `\r\n` handling | Racket's `read-line` keeps `\r`; use `string-trim s "\r"` |
+| didOpen | is a **notification** (no `id`), not a request |
+| Initialize | requires `rootPath` param; takes ~3-4s |
+| Startup cost | ~4-8s first query, <1s subsequent in daemon mode |
+| Port mapping | `(subprocess #f #f #f)` returns `(proc, stdout, stdin, stderr)` |
 
 ## Pool API (Primary Agent Interface)
 
@@ -211,11 +239,13 @@ Output is clean JSON with call sites classified as `call` / `definition` / `comm
 | Symptom | Likely cause | Fix |
 |---------|-------------|------|
 | `clangd not found` | clangd not installed | `apt install clangd` / `brew install llvm` |
+| `racket-langserver` fails | Subprocess can't find `racket` | Use full path `/usr/local/bin/racket` in `RACKET` variable |
 | `READY timeout` | clangd busy or missing `compile_commands.json` | Check file exists, increase `DOOM_LSP_TIMEOUT` |
 | `def/refs returns empty` | Off-by-one line number, or reading at definition line for `def` | Lines are 1-based; use `doc` output for positions; `def` requires a **call site**, not the definition itself |
 | `def` returns `{"file":"","line":0}` | Position is at the function definition itself, not a call site | Find a call site and query `def` there; or this is correct — the definition IS at that position |
-| `refs` returns `[]` every time | clangd hasn't built background index yet (cold start) | **Try `doc <file>` first** to trigger `didOpen`, then try again. If still empty, **fall through to `grep -rn`**. This is a clangd index limitation, not a skill bug. |
-| Daemon returns EOF | clangd crashed | Pool auto-restarts with backoff (3 retries) |
+| `refs` returns `[]` every time | clangd hasn't built background index yet (cold start) | **Try `doc <file>` first** to trigger `didOpen`, then try again. If still empty, **fall through to `grep -rn`** |
+| Racket `doc` returns `[]` | File not properly opened via `didOpen` | Ensure `didOpen` is a **notification** (no `id`), not a request |
+| Daemon returns EOF | LSP server crashed | Pool auto-restarts with backoff (3 retries) |
 | `compile_commands.json` missing | No build system | Run the generator or CMake with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` |
 
 ## Known Behavior
@@ -234,3 +264,11 @@ Output is clean JSON with call sites classified as `call` / `definition` / `comm
   between commands. Use the Racket pool API (`pool.rkt`) for persistent sessions.
 - **`def` at definition returns empty**: Always query `def` from a call site, not from
   the definition line itself. At a definition, there's no further resolution available.
+- **Racket init time**: racket-langserver takes ~3-4 seconds to initialize.
+  Single-shot CLI mode incurs this cost per query. **Daemon mode** (`DAEMONMODE`)
+  pays it once; subsequent queries are <1s.
+- **Racket `didOpen` is a notification**: Unlike clangd, racket-langserver expects
+  `textDocument/didOpen` as a notification (no `id` field). Sending it as a request
+  will return `method not found` error.
+- **Racket `\r\n` handling**: Racket's default `read-line` (linefeed mode) keeps
+  `\r` in the output. All LSP header parsing must strip `\r` before comparison.
