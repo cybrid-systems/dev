@@ -102,7 +102,7 @@ docker exec -it -u dev angel /bin/zsh -l
 ## openclaw
 
 ```bash
-openclaw update
+pnpm add -g openclaw@2026.5.18
 openclaw onboard
 openclaw config set gateway.bind lan
 openclaw config set agents.defaults.workspace ~/code/workspace
