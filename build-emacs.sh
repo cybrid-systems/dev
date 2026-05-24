@@ -6,7 +6,8 @@ GCC_VERSION=${GCC_VERSION:-16}
 export HOME=/home/dev
 
 cd /tmp
-wget https://mirrors.tuna.tsinghua.edu.cn/gnu/emacs/emacs-$VERSION.tar.xz || exit
+# ✅ 已改为 GNU 官方镜像（ftpmirror.gnu.org 自动选择最优镜像）
+wget https://ftpmirror.gnu.org/emacs/emacs-$VERSION.tar.xz || exit
 tar -xf emacs-$VERSION.tar.xz || exit
 cd emacs-$VERSION || exit
 export CC=gcc-$GCC_VERSION CXX=g++-$GCC_VERSION
