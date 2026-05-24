@@ -4,7 +4,6 @@ set -euo pipefail
 # 1. 架构检测与变量设置
 ARCH=$(uname -m)
 VERSION="22.1.6"
-VERSION_ENCODED="$VERSION%2F" # 编码斜杠
 TARGET_PYTHON="libpython3.11.so.1.0"
 INSTALL_DIR="/usr/local"
 LIB_PATH=""
@@ -23,10 +22,11 @@ else
     exit 1
 fi
 
-URL="https://mirrors.tuna.tsinghua.edu.cn/github-release/llvm/llvm-project/LLVM%20${VERSION_ENCODED}/${FILENAME}"
+# ✅ 已改为 LLVM 官方 URL
+URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${VERSION}/${FILENAME}"
 
 # 2. 下载与安装
-echo "正在从清华镜像下载 LLVM ${VERSION}..."
+echo "正在从 LLVM 官方源下载 LLVM ${VERSION}..."
 wget -c "$URL" -O "/tmp/$FILENAME"
 
 echo "正在解压并安装到 ${INSTALL_DIR}..."
