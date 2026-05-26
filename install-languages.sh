@@ -63,6 +63,7 @@ chown -R dev:dev /home/dev 2>/dev/null || true
 # 以dev用户运行pipx，避免权限问题
 su - dev -c "pipx ensurepath"
 su - dev -c "pipx install isort pipenv nose pytest black pyflakes"
+su - dev -c "pip install pexpect --user --break-system-packages"
 
 # ==================== Rust + fd ====================
 # 先安装fd-find

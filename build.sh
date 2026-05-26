@@ -25,7 +25,7 @@ date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' 
 sudo apt-get install -y --no-install-recommends \
     build-essential apt-utils sudo gosu htop iotop tree less \
     vim tmux zsh ack-grep pandoc bear net-tools bc libelf-dev libncurses-dev \
-    libssl-dev libxml2-dev libedit-dev libz-dev \
+    libssl-dev libxml2-dev libedit-dev libz-dev libcurl4-openssl-dev \
     libxpm-dev libjpeg-dev libpng-dev libgif-dev libtiff-dev \
     libgnutls28-dev pkg-config fontconfig libjansson-dev \
     fonts-noto-color-emoji shfmt glslang-tools \
