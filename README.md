@@ -53,7 +53,8 @@ deploy merge
 docker buildx imagetools create \
   ghcr.io/cybrid-systems/dev:amd64 \
   ghcr.io/cybrid-systems/dev:arm64 \
-  -t ghcr.io/cybrid-systems/dev:latest
+  -t ghcr.io/cybrid-systems/dev:latest \
+  -t ghcr.io/cybrid-systems/dev:v1.0.0
 ```
 
 inspect
