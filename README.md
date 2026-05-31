@@ -107,5 +107,6 @@ pnpm add -g openclaw@2026.5.28
 openclaw onboard
 openclaw config set gateway.bind lan
 openclaw config set agents.defaults.workspace ~/code/workspace
+echo "github_*" > ~/.github-token
 openclaw gateway
 ```
