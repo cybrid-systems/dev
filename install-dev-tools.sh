@@ -8,7 +8,7 @@ export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-/usr/local/lib64}"
 export HOME=/home/dev # 显式设置
 
 # ==================== CMake + Ninja ====================
-CMAKE_VERSION=v4.3.2
+CMAKE_VERSION=v4.3.3
 cd /tmp
 wget -q https://github.com/Kitware/CMake/archive/refs/tags/$CMAKE_VERSION.tar.gz -O cmake.tar.gz
 tar -zxf cmake.tar.gz
