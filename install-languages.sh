@@ -18,7 +18,7 @@ else
     echo "检测到 x64 架构，使用 linux-x64 tarball"
 fi
 
-NODE_VERSION="24.15.0" # 当前最新 24.x LTS（2026-04）
+NODE_VERSION="26.3.0" # 当前最新 26.x LTS（2026-04）
 NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_ARCH}.tar.xz"
 
 cd /tmp
@@ -63,7 +63,14 @@ chown -R dev:dev /home/dev 2>/dev/null || true
 # 以dev用户运行pipx，避免权限问题
 su - dev -c "pipx ensurepath"
 su - dev -c "pipx install isort pipenv nose pytest black pyflakes"
-su - dev -c "pip install pexpect --user --break-system-packages"
+echo "正在为 dev 用户安装 pexpect 并验证..."
+if ! su - dev -c "
+    pip install pexpect --user --break-system-packages
+    python3 -c 'import pexpect; print(\"✅ pexpect 安装成功，路径：\", pexpect.__file__)'
+"; then
+    echo "❌ pexpect 安装失败或验证不通过，请检查网络或 Python 环境"
+    exit 1
+fi
 
 # ==================== Rust + fd ====================
 # 先安装fd-find
@@ -75,14 +82,15 @@ su - dev -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -
 # 链接fd
 ln -sf $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
 
-# ====================== Racket 9.1（官方最新，支持 arm64 + x86_64）======================
-echo "=== Installing Racket 9.1 (官方安装器，支持 arm64/x86) ==="
+# ====================== Racket（官方最新，支持 arm64 + x86_64）======================
+RACKET_VERSION="9.2"
+echo "=== Installing Racket ${RACKET_VERSION} (官方安装器，支持 arm64/x86) ==="
 
 cd /tmp
-INSTALLER="racket-9.1-${RACKET_ARCH}-linux-buster-cs.sh"
+INSTALLER="racket-${RACKET_VERSION}-${RACKET_ARCH}-linux-buster-cs.sh"
 
-echo "正在下载 Racket 9.1 (${RACKET_ARCH})..."
-curl -fsSL -o "$INSTALLER" "https://download.racket-lang.org/releases/9.1/installers/$INSTALLER"
+echo "正在下载 Racket ${RACKET_VERSION} (${RACKET_ARCH})..."
+curl -fsSL -o "$INSTALLER" "https://download.racket-lang.org/releases/${RACKET_VERSION}/installers/$INSTALLER"
 
 chmod +x "$INSTALLER"
 
@@ -93,7 +101,7 @@ sudo ./"$INSTALLER" --unix-style --dest /usr/local/racket
 sudo ln -sf /usr/local/racket/bin/* /usr/local/bin/
 
 rm -f "$INSTALLER"
-echo "Racket 9.1 安装完成 ✓"
+echo "Racket 9.2 安装完成 ✓"
 
 # 以dev用户运行raco pkg install（用户级，避免root下petite加载问题）
 su - dev -c "raco pkg install --auto --skip-installed fmt racket-langserver"
