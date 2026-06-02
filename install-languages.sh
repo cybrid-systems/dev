@@ -38,6 +38,7 @@ rm -f node.tar.xz
 echo "Node.js ${NODE_VERSION} (${NODE_ARCH}) 安装完成"
 
 # === 安装 pnpm（使用官方 standalone 脚本，最稳定，不依赖 npm global）===
+export SHELL=/bin/bash
 curl -fsSL https://get.pnpm.io/install.sh | sh -
 hash -r
 pnpm --version || echo "pnpm may need PATH refresh"
