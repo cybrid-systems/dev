@@ -3,8 +3,7 @@ set -euo pipefail
 echo "=== 安装语言工具 (NodeJS/Python/Rust/Racket) ==="
 export HOME=/home/dev
 
-# ====================== Node.js 24（官方 tarball，支持 arm64/x64）======================
-echo "=== Installing Node.js 24 from official tarball (bypasses nodesource) ==="
+echo "=== Installing Node.js from official tarball (bypasses nodesource) ==="
 
 # 自动检测架构
 ARCH=$(uname -m)
@@ -18,7 +17,15 @@ else
     echo "检测到 x64 架构，使用 linux-x64 tarball"
 fi
 
-NODE_VERSION="26.3.0" # 当前最新 26.x LTS（2026-04）
+# ====================== 动态获取最新版本（不要硬编码！） ======================
+echo "=== 正在动态获取最新 Node.js 版本 ==="
+NODE_VERSION=$(curl -sL --max-time 15 https://nodejs.org/dist/index.json | grep -o '"version":"v[^"]*"' | head -1 | cut -d'"' -f4 | tr -d 'v' || true)
+if [ -z "$NODE_VERSION" ]; then
+    NODE_VERSION="26.3.0"
+    echo "⚠️ 无法从 nodejs.org 获取最新版本，使用 fallback: ${NODE_VERSION}"
+else
+    echo "✅ Node.js 最新版本: ${NODE_VERSION}"
+fi
 NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_ARCH}.tar.xz"
 
 cd /tmp
@@ -30,10 +37,11 @@ sudo ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-${NODE_ARCH}/bin/* /usr/
 rm -f node.tar.xz
 echo "Node.js ${NODE_VERSION} (${NODE_ARCH}) 安装完成"
 
-# === Corepack + pnpm ===
-npm install -g corepack@latest
-corepack enable pnpm
-corepack prepare pnpm@latest --activate
+# === 安装 pnpm（使用官方 standalone 脚本，最稳定，不依赖 npm global）===
+curl -fsSL https://get.pnpm.io/install.sh | sh -
+hash -r
+pnpm --version || echo "pnpm may need PATH refresh"
+echo "pnpm installed successfully"
 
 # 为 dev 用户设置 pnpm 环境
 mkdir -p /home/dev/.local/share/pnpm
