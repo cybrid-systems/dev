@@ -36,7 +36,6 @@ deploy arm64
 docker buildx build \
   --platform linux/arm64 \
   -t ghcr.io/cybrid-systems/dev:arm64 \
-  -t ghcr.io/cybrid-systems/dev:1.0.1 \
   --push .
 ```
 
