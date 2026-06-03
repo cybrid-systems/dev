@@ -26,7 +26,7 @@ deploy both
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
     -t ghcr.io/cybrid-systems/dev \
-    -t ghcr.io/cybrid-systems/dev:1.0.1 \
+    -t ghcr.io/cybrid-systems/dev:v1.0.1 \
     . --push
 ```
 
