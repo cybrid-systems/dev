@@ -6,7 +6,7 @@
 
 set -e
 
-IMAGE="ghcr.io/cybrid-systems/dev:v1.0.1"
+IMAGE="ghcr.io/cybrid-systems/dev:v1.0.2"
 CONTAINER_NAME="lobster-test"
 
 echo "🚀 开始测试 Lobster Dev Environment (自动检测架构)..."
