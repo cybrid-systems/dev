@@ -28,7 +28,7 @@ sudo apt-get install -y --no-install-recommends \
     libssl-dev libxml2-dev libedit-dev libz-dev libcurl4-openssl-dev \
     libxpm-dev libjpeg-dev libpng-dev libgif-dev libtiff-dev \
     libgnutls28-dev pkg-config fontconfig libjansson-dev \
-    fonts-noto-color-emoji shfmt glslang-tools \
+    fonts-noto-color-emoji shfmt glslang-tools libgit2-dev \
     libtree-sitter-dev libx11-dev libxt-dev libxaw7-dev libxmu-dev \
     python3-dev python3-pip python3-venv python3-full pipx \
     markdown shellcheck ispell ripgrep fd-find libtool \

@@ -80,6 +80,8 @@ if ! su - dev -c "
     echo "❌ pexpect 安装失败或验证不通过，请检查网络或 Python 环境"
     exit 1
 fi
+# --- 新增：给 root 用户全局安装（CI 直接可用）---
+pip install --break-system-packages pexpect
 
 # ==================== Rust + fd ====================
 # 先安装fd-find
