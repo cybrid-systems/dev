@@ -18,15 +18,15 @@ docker buildx create --name orb-multi \
 
 build
 ``` bash
-docker buildx build --platform linux/arm64 -t ghcr.io/cybrid-systems/dev:arm64 . --load
-docker buildx build --platform linux/amd64 -t ghcr.io/cybrid-systems/dev:amd64 . --load
+docker buildx build --platform linux/arm64 -t ghcr.io/cybrid-systems/aura-ci:arm64 . --load
+docker buildx build --platform linux/amd64 -t ghcr.io/cybrid-systems/aura-ci:amd64 . --load
 ```
 
 deploy both
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
-    -t ghcr.io/cybrid-systems/dev \
-    -t ghcr.io/cybrid-systems/dev:v1.0.2 \
+    -t ghcr.io/cybrid-systems/aura-ci \
+    -t ghcr.io/cybrid-systems/aura-ci:v1.0.0 \
     . --push
 ```
 
@@ -35,7 +35,7 @@ deploy arm64
 ``` bash
 docker buildx build \
   --platform linux/arm64 \
-  -t ghcr.io/cybrid-systems/dev:arm64 \
+  -t ghcr.io/cybrid-systems/aura-ci:arm64 \
   --push .
 ```
 
@@ -44,7 +44,7 @@ deploy amd64
 ``` bash
 docker buildx build \
   --platform linux/amd64 \
-  -t ghcr.io/cybrid-systems/dev:amd64 \
+  -t ghcr.io/cybrid-systems/aura-ci:amd64 \
   --push .
 ```
 
@@ -52,26 +52,26 @@ deploy merge
 
 ``` bash
 docker buildx imagetools create \
-  ghcr.io/cybrid-systems/dev:amd64 \
-  ghcr.io/cybrid-systems/dev:arm64 \
-  -t ghcr.io/cybrid-systems/dev:latest \
-  -t ghcr.io/cybrid-systems/dev:v1.0.2
+  ghcr.io/cybrid-systems/aura-ci:amd64 \
+  ghcr.io/cybrid-systems/aura-ci:arm64 \
+  -t ghcr.io/cybrid-systems/aura-ci:latest \
+  -t ghcr.io/cybrid-systems/aura-ci:v1.0.0
 ```
 
 inspect
 ``` bash
-docker buildx imagetools inspect ghcr.io/cybrid-systems/dev:latest
+docker buildx imagetools inspect ghcr.io/cybrid-systems/aura-ci:latest
 ```
 
 or
 ``` bash
-docker manifest inspect ghcr.io/cybrid-systems/dev:latest
+docker manifest inspect ghcr.io/cybrid-systems/aura-ci:latest
 ```
 
 ## test
 
 ```bash
-docker run -it --rm -v `pwd`/..:/root/code -w /root/code ghcr.io/cybrid-systems/dev /bin/zsh
+docker run -it --rm -v `pwd`/..:/root/code -w /root/code ghcr.io/cybrid-systems/aura-ci /bin/zsh
 ```
 
 ``` bash
@@ -81,7 +81,7 @@ docker run -it --rm -v `pwd`/..:/root/code -w /root/code ghcr.io/cybrid-systems/
 ## run
 
 ```bash
-docker run --privileged -d -it --name angel -v `pwd`:/root/code -w /root/code ghcr.io/cybrid-systems/dev
+docker run --privileged -d -it --name angel -v `pwd`:/root/code -w /root/code ghcr.io/cybrid-systems/aura-ci
 docker exec -it --detach-keys="ctrl-z,z" angel /bin/zsh
 git config --global user.name $your_name
 git config --global user.email $your_email
@@ -96,7 +96,7 @@ docker run -d -it --name angel \
   -p 18791:18791 \
   -v $(pwd):/home/dev/code \
   -w /home/dev/code \
-  ghcr.io/cybrid-systems/dev:latest
+  ghcr.io/cybrid-systems/aura-ci:latest
 
 docker exec -it -u dev angel /bin/zsh -l
 ```

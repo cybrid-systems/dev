@@ -39,14 +39,6 @@ FROM languages AS llvm
 # Already root
 COPY install-llvm.sh /home/${USERNAME}/
 RUN bash /home/${USERNAME}/install-llvm.sh && rm /home/${USERNAME}/install-llvm.sh
-FROM llvm AS emacs
-# Already root
-COPY build-emacs.sh /home/${USERNAME}/
-RUN bash /home/${USERNAME}/build-emacs.sh && rm /home/${USERNAME}/build-emacs.sh
-COPY *.el /home/${USERNAME}/
-COPY build-doom.sh /home/${USERNAME}/
-RUN bash /home/${USERNAME}/build-doom.sh && rm /home/${USERNAME}/build-doom.sh /home/${USERNAME}/*.el
-FROM emacs AS final
 # Already root, stay as root for ENTRYPOINT
 
 # Install gosu for proper privilege drop and TTY handling (multi-arch compatible)

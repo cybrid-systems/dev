@@ -83,38 +83,4 @@ fi
 # --- 新增：给 root 用户全局安装（CI 直接可用）---
 pip install --break-system-packages pexpect
 
-# ==================== Rust + fd ====================
-# 先安装fd-find
-apt-get update && apt-get install -y fd-find && rm -rf /var/lib/apt/lists/*
-
-# 以dev用户运行rustup，避免HOME/euid问题
-su - dev -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable"
-
-# 链接fd
-ln -sf $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
-
-# ====================== Racket（官方最新，支持 arm64 + x86_64）======================
-RACKET_VERSION="9.2"
-echo "=== Installing Racket ${RACKET_VERSION} (官方安装器，支持 arm64/x86) ==="
-
-cd /tmp
-INSTALLER="racket-${RACKET_VERSION}-${RACKET_ARCH}-linux-buster-cs.sh"
-
-echo "正在下载 Racket ${RACKET_VERSION} (${RACKET_ARCH})..."
-curl -fsSL -o "$INSTALLER" "https://download.racket-lang.org/releases/${RACKET_VERSION}/installers/$INSTALLER"
-
-chmod +x "$INSTALLER"
-
-# 安装（最干净的方式）
-sudo ./"$INSTALLER" --unix-style --dest /usr/local/racket
-
-# 创建全局软链接（racket、raco 等命令直接可用）
-sudo ln -sf /usr/local/racket/bin/* /usr/local/bin/
-
-rm -f "$INSTALLER"
-echo "Racket 9.2 安装完成 ✓"
-
-# 以dev用户运行raco pkg install（用户级，避免root下petite加载问题）
-su - dev -c "raco pkg install --auto --skip-installed fmt racket-langserver"
-
 echo "=== 语言工具安装完成 ==="
