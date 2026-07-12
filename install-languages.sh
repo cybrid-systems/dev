@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-echo "=== 安装语言工具 (NodeJS/Python/Rust/Racket) ==="
+echo "=== 安装语言工具 (NodeJS/Python/Rust) ==="
 export HOME=/home/dev
 
 echo "=== Installing Node.js from official tarball (bypasses nodesource) ==="
@@ -9,11 +9,9 @@ echo "=== Installing Node.js from official tarball (bypasses nodesource) ==="
 ARCH=$(uname -m)
 if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
     NODE_ARCH="linux-arm64"
-    RACKET_ARCH="aarch64"
     echo "检测到 arm64 架构，使用 linux-arm64 tarball"
 else
     NODE_ARCH="linux-x64"
-    RACKET_ARCH="x86_64"
     echo "检测到 x64 架构，使用 linux-x64 tarball"
 fi
 
@@ -92,29 +90,3 @@ su - dev -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -
 
 # 链接fd
 ln -sf $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
-
-# ====================== Racket（官方最新，支持 arm64 + x86_64）======================
-RACKET_VERSION="9.2"
-echo "=== Installing Racket ${RACKET_VERSION} (官方安装器，支持 arm64/x86) ==="
-
-cd /tmp
-INSTALLER="racket-${RACKET_VERSION}-${RACKET_ARCH}-linux-buster-cs.sh"
-
-echo "正在下载 Racket ${RACKET_VERSION} (${RACKET_ARCH})..."
-curl -fsSL -o "$INSTALLER" "https://download.racket-lang.org/releases/${RACKET_VERSION}/installers/$INSTALLER"
-
-chmod +x "$INSTALLER"
-
-# 安装（最干净的方式）
-sudo ./"$INSTALLER" --unix-style --dest /usr/local/racket
-
-# 创建全局软链接（racket、raco 等命令直接可用）
-sudo ln -sf /usr/local/racket/bin/* /usr/local/bin/
-
-rm -f "$INSTALLER"
-echo "Racket 9.2 安装完成 ✓"
-
-# 以dev用户运行raco pkg install（用户级，避免root下petite加载问题）
-su - dev -c "raco pkg install --auto --skip-installed fmt racket-langserver"
-
-echo "=== 语言工具安装完成 ==="
