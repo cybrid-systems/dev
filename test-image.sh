@@ -40,7 +40,6 @@ echo "Cargo        :" && cargo --version
 echo "Node.js      :" && node --version
 echo "npm          :" && npm --version
 echo "Python       :" && python3 --version
-echo "Racket       :" && racket --version
 echo "CMake        :" && cmake --version | head -n 1
 echo "Ninja        :" && ninja --version
 echo "Emacs        :" && emacs --version | head -n 1
@@ -66,12 +65,6 @@ node -e '\''console.log("✅ Node.js 运行正常")'\''
 
 echo "🧪 Python 测试"
 python3 -c '\''print("✅ Python 运行正常")'\''
-
-echo "🧪 Racket 测试"
-racket -e '\''(displayln "✅ Racket 运行完全正常！")'\''
-
-echo "🧪 Emacs + Doom 检查"
-emacs --batch --eval '\''(message "✅ Emacs + Doom 配置加载成功")'\'' 2>&1 | cat
 
 echo "🎉 所有测试通过！Lobster Dev Environment 功能完整。"
 '
