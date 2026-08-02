@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# doom-lsp.sh — clangd LSP wrapper (no Racket required for CLI)
+# doom-lsp.sh — LSP wrapper (Python stdlib only — no Racket required).
 #
 # Manages a persistent clangd daemon per project and sends commands via FIFO.
 # Waits for daemon READY before accepting commands.
@@ -18,13 +18,12 @@ set -euo pipefail
 
 SELF="$(cd "$(dirname "$0")" && pwd)"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/doom-lsp"
-RACKET="$(command -v racket || true)"
-CLANGD_SCRIPT="$SELF/clangd.rkt"
-RACKET_LSP_SCRIPT="$SELF/racket-lsp.rkt"
+PYTHON="$(command -v python3 || true)"
+CLANGD_SCRIPT="$SELF/clangd.py"
 DOOM_LSP_TIMEOUT="${DOOM_LSP_TIMEOUT:-60}"
 
-[ -n "$RACKET" ] || { echo "ERROR: racket not found in PATH" >&2; exit 1; }
-[ -f "$CLANGD_SCRIPT" ] || { echo "ERROR: clangd.rkt not found at $CLANGD_SCRIPT" >&2; exit 1; }
+[ -n "$PYTHON" ] || { echo "ERROR: python3 not found in PATH" >&2; exit 1; }
+[ -f "$CLANGD_SCRIPT" ] || { echo "ERROR: clangd.py not found at $CLANGD_SCRIPT" >&2; exit 1; }
 
 mkdir -p "$CACHE_DIR"
 
@@ -105,7 +104,7 @@ daemon_start() {
   > "$err_f"
 
   # Start daemon with FIFO as stdin
-  nohup "$RACKET" "$CLANGD_SCRIPT" -d "$dir" DAEMONMODE < "$fifo" > "$out_f" 2> "$err_f" &
+  nohup "$PYTHON" "$CLANGD_SCRIPT" -d "$dir" DAEMONMODE < "$fifo" > "$out_f" 2> "$err_f" &
   local pid=$!
   echo "$pid" > "$pid_f"
   rm -f "$ready_f"
@@ -295,13 +294,6 @@ case "$CMD" in
     ;;
 
   def|refs|sym|doc)
-    # Check if file is a Racket file → use racket-lsp.rkt
-    case "$1" in
-      *.rkt|*.scrbl|*.rktl|*.rktd)
-        racket "$RACKET_LSP_SCRIPT" "$PROJECT_DIR" "$CMD" "$@"
-        exit $?
-        ;;
-    esac
     ensure_daemon "$PROJECT_DIR"
     daemon_send "$PROJECT_DIR" "$CMD $*"
     ;;
@@ -310,15 +302,15 @@ case "$CMD" in
     ensure_daemon "$PROJECT_DIR"
     file="${1:-}"
     [ -z "$file" ] && { echo "Usage: doom-lsp <dir> summary <file>"; exit 1; }
-    daemon_send "$PROJECT_DIR" "doc $file" | "$RACKET" -e "
-(require json)
-(define d (with-input-from-string (read-line) read-json))
-(define kinds '(#f #f #f #f cls struct #f #f field #f #f #f fn var))
-(printf \"~a symbols:\n\" (length d))
-(for ([x (in-list d)])
-  (define k (hash-ref x 'kind 0))
-  (define kl (if (and k (< k (length kinds))) (list-ref kinds k) '?))
-  (printf \"  ~a ~a @ ~a\n\" kl (hash-ref x 'name) (hash-ref x 'line)))
+    daemon_send "$PROJECT_DIR" "doc $file" | "$PYTHON" -c "
+import json, sys
+KINDS = ['File','Module','Namespace','Package','Class','Struct','Interface','Enum','Field','Property','Method','Macro','Function','Variable']
+data = json.loads(sys.stdin.readline())
+print(f'{len(data)} symbols:')
+for x in data:
+    k = x.get('kind', 0)
+    kn = KINDS[k] if 0 <= k < len(KINDS) else '?'
+    print(f'  {kn} {x.get(\"name\",\"?\")} @ {x.get(\"line\",0)}')
 " 2>/dev/null
     ;;
 
