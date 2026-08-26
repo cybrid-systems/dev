@@ -3,7 +3,7 @@ set -euo pipefail
 
 # 1. 架构检测与变量设置
 ARCH=$(uname -m)
-VERSION="22.1.8"
+VERSION="23.1.0"
 TARGET_PYTHON="libpython3.11.so.1.0"
 INSTALL_DIR="/usr/local"
 LIB_PATH=""
