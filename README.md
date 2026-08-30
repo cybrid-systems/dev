@@ -108,6 +108,8 @@ pnpm add -g openclaw@2026.8.1-beta.3
 openclaw onboard
 openclaw config set gateway.bind lan
 openclaw config set agents.defaults.workspace ~/code/workspace
+openclaw onboard --auth-choice deepseek-api-key
+openclaw onboard --auth-choice zai-coding-cn
 echo "ghp_*" > ~/.github-token
 openclaw gateway
 ```
