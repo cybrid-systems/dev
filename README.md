@@ -111,5 +111,7 @@ openclaw config set agents.defaults.workspace ~/code/workspace
 openclaw onboard --auth-choice deepseek-api-key
 openclaw onboard --auth-choice zai-coding-cn
 echo "ghp_*" > ~/.github-token
+openclaw models list --provider zai
+openclaw models set zai/glm-5.3
 openclaw gateway
 ```
