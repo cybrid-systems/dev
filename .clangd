@@ -1,0 +1,28 @@
+CompileFlags:
+  Add:
+    - --target=aarch64-linux-gnu
+    - -Wno-unknown-warning-option
+    - -Wno-unused-command-line-argument
+    - -ferror-limit=0
+  Remove:
+    - -mabi=*
+    - -fno-allow-store-data-races
+    - -fconserve-stack
+    - -fno-stack-check
+    - -mstack-protector-guard=*
+    - -mstack-protector-guard-reg=*
+    - -mstack-protector-guard-offset=*
+    - -mbranch-protection=*
+    - -Wp,*
+    - -Wno-psabi
+    - -Wno-maybe-uninitialized
+    - -Wno-stringop-truncation
+    - -Wno-zero-length-bounds
+    - -Wno-restrict
+    - -Wno-packed-not-aligned
+
+Diagnostics:
+  Suppress: "*"
+
+Index:
+  Background: Build
