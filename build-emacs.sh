@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-VERSION=30.2
+VERSION=31.1
 GCC_VERSION=${GCC_VERSION:-16}
 export HOME=/home/dev
 

@@ -7,8 +7,8 @@ DOOM_CONF_DIR=$HOME/.config/doom
 
 # doom emacs
 mkdir $DOOM_CONF_DIR -p
-git clone --depth 1 https://github.com/hlissner/doom-emacs $HOME/.config/emacs
-$DOOM_BIN env
+git clone --depth 1 https://github.com/doomemacs/core $HOME/.config/emacs
+$DOOM_BIN sync --env
 $DOOM_BIN install --no-config --no-env
 cp ~/*.el $DOOM_CONF_DIR
 $DOOM_BIN sync
