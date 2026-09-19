@@ -79,14 +79,14 @@
   :config
   (setq! gptel-api-key "your api key"))
 ;; OPTIONAL configuration
-(setq gptel-model 'deepseek-v4-pro
+(setq gptel-model 'deepseek-flash
       gptel-backend
       (gptel-make-openai "DeepSeek"     ;Any name you want
         :host "api.deepseek.com"
         :endpoint "/chat/completions"
         :stream t
         :key "your api key"             ;can be a function that returns the key
-        :models '("deepseek-v4-flash" "deepseek-v4-pro")))
+        :models '("deepseek-flash" "deepseek-v4-pro")))
 
 (defun replace-latex-delimiters (arg1 arg2)
   "Replace LaTeX delimiters \(, \), \[, and \] with $, $$, respectively."
