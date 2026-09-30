@@ -34,7 +34,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "🔧 工具版本检查"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Clang / LLVM :" && clang --version | head -n 1
-echo "GCC 15       :" && gcc --version | head -n 1
+echo "GCC          :" && gcc --version | head -n 1
 echo "Rust         :" && rustc --version
 echo "Cargo        :" && cargo --version
 echo "Node.js      :" && node --version
@@ -42,7 +42,6 @@ echo "npm          :" && npm --version
 echo "Python       :" && python3 --version
 echo "CMake        :" && cmake --version | head -n 1
 echo "Ninja        :" && ninja --version
-echo "Emacs        :" && emacs --version | head -n 1
 echo "fd           :" && fd --version
 echo "rg           :" && rg --version | head -n 1
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
