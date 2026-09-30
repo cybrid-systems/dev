@@ -26,7 +26,7 @@ deploy both
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
     -t ghcr.io/cybrid-systems/dev \
-    -t ghcr.io/cybrid-systems/dev:v1.0.8 \
+    -t ghcr.io/cybrid-systems/dev:v1.0.9 \
     . --push
 ```
 
@@ -55,7 +55,7 @@ docker buildx imagetools create \
   ghcr.io/cybrid-systems/dev:amd64 \
   ghcr.io/cybrid-systems/dev:arm64 \
   -t ghcr.io/cybrid-systems/dev:latest \
-  -t ghcr.io/cybrid-systems/dev:v1.0.8
+  -t ghcr.io/cybrid-systems/dev:v1.0.9
 ```
 
 inspect
@@ -104,7 +104,7 @@ docker exec -it -u dev angel /bin/zsh -l
 ## openclaw
 
 ```bash
-pnpm add -g openclaw@2026.9.6
+pnpm add -g openclaw@2026.9.7
 openclaw onboard
 openclaw config set gateway.bind lan
 openclaw config set agents.defaults.workspace ~/code/workspace
