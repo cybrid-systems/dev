@@ -98,6 +98,7 @@ docker run -d -it --name angel \
   -w /home/dev/code \
   ghcr.io/cybrid-systems/dev:latest
 
+docker exec -u root angel chown -R dev:dev /home/dev
 docker exec -it -u dev angel /bin/zsh -l
 ```
 
