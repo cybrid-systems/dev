@@ -94,6 +94,7 @@ docker run -d -it --name angel \
   -e USER_GID=$(id -g) \
   -p 18789:18789 \
   -p 18791:18791 \
+  -p 127.0.0.1:8765:8765 \
   -v $(pwd):/home/dev/code \
   -w /home/dev/code \
   ghcr.io/cybrid-systems/dev:latest
