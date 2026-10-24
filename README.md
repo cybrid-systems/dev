@@ -89,12 +89,10 @@ git config --global user.email $your_email
 
 ``` bash
 docker run -d -it --name angel \
+  --net host \
   --cap-add=SYS_PTRACE \
   -e USER_UID=$(id -u) \
   -e USER_GID=$(id -g) \
-  -p 18789:18789 \
-  -p 18791:18791 \
-  -p 127.0.0.1:8765:8765 \
   -v $(pwd):/home/dev/code \
   -w /home/dev/code \
   ghcr.io/cybrid-systems/dev:latest
