@@ -72,6 +72,39 @@ else
     echo "⚠️  patchelf 修改失败（未找到 liblldb.so 或 patchelf）"
 fi
 
+# 4b. lld / llvm-mt 的 ICU 依赖 (cybrid-systems/aura#4773)
+# LLVM 官方 Linux 预编译包是在 Ubuntu 22.04 上构建的，lld 和 llvm-mt 链接了 ICU 70
+# (libicu{i18n,uc,data}.so.70)。Ubuntu 26.x 只有 libicu78，而 ICU 的导出符号带版本后缀
+# (u_xxx_70)，不能用软链接或 patchelf --replace-needed 改成 .so.78。
+# 做法：把 Ubuntu 22.04 的 libicu70 解到私有目录，只给缺 ICU 70 的二进制设置 RUNPATH，
+# 不污染系统 ldconfig 路径。
+echo "修复 lld / llvm-mt 的 libicu*.so.70 依赖..."
+ICU70_DIR="$INSTALL_DIR/lib/llvm-icu70"
+if [ "$ARCH" == "x86_64" ]; then
+    ICU70_DEB_URL="http://archive.ubuntu.com/ubuntu/pool/main/i/icu/libicu70_70.1-2_amd64.deb"
+else
+    ICU70_DEB_URL="http://ports.ubuntu.com/ubuntu-ports/pool/main/i/icu/libicu70_70.1-2_arm64.deb"
+fi
+NEED_ICU70=()
+for bin in "$INSTALL_DIR"/bin/*; do
+    [ -f "$bin" ] && [ ! -L "$bin" ] || continue
+    if ldd "$bin" 2>/dev/null | grep -q 'libicu[a-z0-9]*\.so\.70 => not found'; then
+        NEED_ICU70+=("$bin")
+    fi
+done
+if [ ${#NEED_ICU70[@]} -gt 0 ]; then
+    TMP_ICU=$(mktemp -d)
+    wget -q "$ICU70_DEB_URL" -O "$TMP_ICU/libicu70.deb"
+    dpkg-deb -x "$TMP_ICU/libicu70.deb" "$TMP_ICU/x"
+    mkdir -p "$ICU70_DIR"
+    cp -a "$TMP_ICU"/x/usr/lib/*/libicu*.so.70* "$ICU70_DIR/"
+    rm -rf "$TMP_ICU"
+    for bin in "${NEED_ICU70[@]}"; do
+        patchelf --add-rpath "$ICU70_DIR" "$bin"
+        echo "✅ $bin -> RUNPATH += $ICU70_DIR"
+    done
+fi
+
 # 5. 刷新缓存与验证
 ldconfig
 
@@ -80,6 +113,22 @@ if command -v clang >/dev/null; then
     echo "✅ LLVM $VERSION 安装完成！"
     clang --version | head -n 1
     lldb --version | head -n 1
+    # 冒烟检查 (aura#4773)：lld 必须能运行，-fuse-ld=lld 必须能链接；
+    # $INSTALL_DIR/bin 下任何二进制有 "not found" 的动态库依赖都直接让镜像构建失败。
+    ld.lld --version | head -n 1
+    MISSING=0
+    for bin in "$INSTALL_DIR"/bin/*; do
+        [ -f "$bin" ] && [ ! -L "$bin" ] || continue
+        if ldd "$bin" 2>/dev/null | grep -q 'not found'; then
+            echo "❌ $bin 缺少动态库:"; ldd "$bin" | grep 'not found'
+            MISSING=1
+        fi
+    done
+    [ "$MISSING" = 0 ] || exit 1
+    printf 'int main(){return 0;}\n' > /tmp/lld_smoke.c
+    clang -fuse-ld=lld /tmp/lld_smoke.c -o /tmp/lld_smoke && /tmp/lld_smoke
+    rm -f /tmp/lld_smoke /tmp/lld_smoke.c
+    echo "✅ ld.lld 冒烟检查通过"
 else
     echo "安装失败，请检查 PATH 变量。"
 fi

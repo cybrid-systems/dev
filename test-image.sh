@@ -42,6 +42,7 @@ echo "npm          :" && npm --version
 echo "Python       :" && python3 --version
 echo "CMake        :" && cmake --version | head -n 1
 echo "Ninja        :" && ninja --version
+echo "ld.lld       :" && ld.lld --version | head -n 1
 echo "fd           :" && fd --version
 echo "rg           :" && rg --version | head -n 1
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -53,6 +54,7 @@ int main() { printf("✅ LLVM/Clang + GCC 编译通过！\n"); return 0;  }
 EOF
 clang /tmp/test.c -o /tmp/test_clang && /tmp/test_clang
 gcc /tmp/test.c -o /tmp/test_gcc && /tmp/test_gcc
+clang -fuse-ld=lld /tmp/test.c -o /tmp/test_lld && /tmp/test_lld
 
 cat > /tmp/test.rs << EOF
 fn main() { println!("✅ Rust 编译通过！");  }
