@@ -7,7 +7,7 @@ export DEBIAN_FRONTEND=noninteractive
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-/usr/local/lib64}"
 export HOME=/home/dev # 显式设置
 
-# ==================== CMake（官方二进制） ====================
+# ==================== CMake（官方二进制，用 Python 解压） ====================
 CMAKE_VERSION=4.5.0-rc2
 ARCH=$(uname -m)
 case "$ARCH" in
@@ -27,8 +27,29 @@ cd /tmp
 echo "Downloading CMake ${CMAKE_VERSION} (${CMAKE_ARCH})..."
 wget -q "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-${CMAKE_ARCH}.tar.gz" -O cmake.tar.gz
 
-# 使用 --no-same-owner 规避 Docker overlayfs / seccomp 下的权限问题
-tar -zxf cmake.tar.gz --no-same-owner --no-same-permissions --strip-components=1 -C /usr/local
+# 用 Python tarfile 解压，避开系统 tar 的 openat2 问题
+python3 - <<'PY'
+import tarfile
+import os
+
+src = "cmake.tar.gz"
+dst = "/usr/local"
+
+print(f"Extracting {src} to {dst} with Python tarfile...")
+with tarfile.open(src, "r:gz") as tar:
+    # strip-components=1
+    members = []
+    for m in tar.getmembers():
+        if m.name.startswith("./"):
+            m.name = m.name[2:]
+        parts = m.name.split("/", 1)
+        if len(parts) == 2:
+            m.name = parts[1]
+            members.append(m)
+        # 跳过顶层目录本身
+    tar.extractall(path=dst, members=members)
+print("Extract done.")
+PY
 
 rm -f cmake.tar.gz
 echo "CMake ${CMAKE_VERSION} installed to /usr/local"
