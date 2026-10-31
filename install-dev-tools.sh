@@ -7,17 +7,34 @@ export DEBIAN_FRONTEND=noninteractive
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-/usr/local/lib64}"
 export HOME=/home/dev # 显式设置
 
-# ==================== CMake + Ninja ====================
-CMAKE_VERSION=v4.5.0-rc2
-cd /tmp
-wget -q https://github.com/Kitware/CMake/archive/refs/tags/$CMAKE_VERSION.tar.gz -O cmake.tar.gz
-tar -zxf cmake.tar.gz
-cd CMake-${CMAKE_VERSION:1}
-./bootstrap --parallel=14 --prefix=/usr/local
-make -j14 && sudo make install
-cd /tmp && rm -rf cmake* CMake-*
+# ==================== CMake（官方二进制） ====================
+CMAKE_VERSION=4.5.0-rc2
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64)
+    CMAKE_ARCH=linux-x86_64
+    ;;
+  aarch64|arm64)
+    CMAKE_ARCH=linux-aarch64
+    ;;
+  *)
+    echo "Unsupported architecture: $ARCH"
+    exit 1
+    ;;
+esac
 
-# Ninja
+cd /tmp
+echo "Downloading CMake ${CMAKE_VERSION} (${CMAKE_ARCH})..."
+wget -q "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-${CMAKE_ARCH}.tar.gz" -O cmake.tar.gz
+
+# 使用 --no-same-owner 规避 Docker overlayfs / seccomp 下的权限问题
+tar -zxf cmake.tar.gz --no-same-owner --no-same-permissions --strip-components=1 -C /usr/local
+
+rm -f cmake.tar.gz
+echo "CMake ${CMAKE_VERSION} installed to /usr/local"
+
+# ==================== Ninja ====================
+echo "Building Ninja..."
 git clone https://github.com/ninja-build/ninja.git /tmp/ninja
 cd /tmp/ninja
 git checkout release
