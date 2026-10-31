@@ -48,14 +48,14 @@ sudo ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-${NODE_ARCH}/bin/* /usr/
 rm -f node.tar.xz
 echo "Node.js ${NODE_VERSION} (${NODE_ARCH}) 安装完成"
 
-# === 安装 pnpm（使用官方 standalone 脚本，最稳定，不依赖 npm global）===
-export SHELL=/bin/bash
-curl -fsSL https://get.pnpm.io/install.sh | sh -
+# === 安装 pnpm（用 npm 全局安装，避开 get.pnpm.io 脚本里的 tar）===
+echo "=== Installing pnpm via npm ==="
+npm install -g pnpm@latest
 hash -r
-pnpm --version || echo "pnpm may need PATH refresh"
+pnpm --version
 echo "pnpm installed successfully"
 
-# 为 dev 用户设置 pnpm 环境
+# 为 dev 用户设置 pnpm 环境（可选，npm -g 已经在 /usr/local/bin）
 mkdir -p /home/dev/.local/share/pnpm
 chown -R dev:dev /home/dev/.local
 
@@ -66,11 +66,6 @@ export PNPM_HOME="/home/dev/.local/share/pnpm"
 export PATH="$PNPM_HOME/bin:$PATH"
 EOF
 
-# 当前 shell 也生效
-export PNPM_HOME="/home/dev/.local/share/pnpm"
-export PATH="$PNPM_HOME/bin:$PATH"
-
-pnpm --version
 echo "✅ Node.js + pnpm installed successfully"
 
 # Optional: install openclaw if you still need it
