@@ -29,9 +29,31 @@ URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${VERSION}/$
 echo "正在从 LLVM 官方源下载 LLVM ${VERSION}..."
 wget -c "$URL" -O "/tmp/$FILENAME"
 
-echo "正在解压并安装到 ${INSTALL_DIR}..."
-tar -xJf "/tmp/$FILENAME" -C "$INSTALL_DIR" --strip-components=1
-rm "/tmp/$FILENAME"
+echo "正在用 Python tarfile 解压并安装到 ${INSTALL_DIR}（避开系统 tar）..."
+python3 - <<PY
+import tarfile
+import os
+
+src = "/tmp/$FILENAME"
+dst = "$INSTALL_DIR"
+print(f"Extracting {src} to {dst} with strip-components=1...")
+
+with tarfile.open(src, "r:xz") as tar:
+    members = []
+    for m in tar.getmembers():
+        # strip-components=1
+        if m.name.startswith("./"):
+            m.name = m.name[2:]
+        parts = m.name.split("/", 1)
+        if len(parts) == 2 and parts[1]:
+            m.name = parts[1]
+            members.append(m)
+        # 跳过顶层目录本身
+    tar.extractall(path=dst, members=members)
+print("Extract done.")
+PY
+
+rm -f "/tmp/$FILENAME"
 
 # 3. 修复 lldb 的 Python 依赖（保留原逻辑）
 echo "检查 lldb 的 Python 动态库依赖..."
@@ -73,11 +95,6 @@ else
 fi
 
 # 4b. lld / llvm-mt 的 ICU 依赖 (cybrid-systems/aura#4773)
-# LLVM 官方 Linux 预编译包是在 Ubuntu 22.04 上构建的，lld 和 llvm-mt 链接了 ICU 70
-# (libicu{i18n,uc,data}.so.70)。Ubuntu 26.x 只有 libicu78，而 ICU 的导出符号带版本后缀
-# (u_xxx_70)，不能用软链接或 patchelf --replace-needed 改成 .so.78。
-# 做法：把 Ubuntu 22.04 的 libicu70 解到私有目录，只给缺 ICU 70 的二进制设置 RUNPATH，
-# 不污染系统 ldconfig 路径。
 echo "修复 lld / llvm-mt 的 libicu*.so.70 依赖..."
 ICU70_DIR="$INSTALL_DIR/lib/llvm-icu70"
 if [ "$ARCH" == "x86_64" ]; then
@@ -113,8 +130,6 @@ if command -v clang >/dev/null; then
     echo "✅ LLVM $VERSION 安装完成！"
     clang --version | head -n 1
     lldb --version | head -n 1
-    # 冒烟检查 (aura#4773)：lld 必须能运行，-fuse-ld=lld 必须能链接；
-    # $INSTALL_DIR/bin 下任何二进制有 "not found" 的动态库依赖都直接让镜像构建失败。
     ld.lld --version | head -n 1
     MISSING=0
     for bin in "$INSTALL_DIR"/bin/*; do
