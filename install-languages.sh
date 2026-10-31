@@ -50,43 +50,32 @@ echo "Node.js ${NODE_VERSION} (${NODE_ARCH}) 安装完成"
 # ====================== 安装 pnpm（官方独立二进制 + Python 解压） ======================
 echo "=== Installing pnpm from official binary ==="
 
-# 尝试获取最新版本，失败则 fallback
-PNPM_VERSION=$(curl -sL --max-time 10 https://api.github.com/repos/pnpm/pnpm/releases/latest 2>/dev/null | grep -o '"tag_name":"v[^"]*"' | head -1 | cut -d'"' -f4 | tr -d 'v' || true)
-if [ -z "$PNPM_VERSION" ]; then
-    PNPM_VERSION="12.16.1"
-    echo "⚠️ 无法获取最新 pnpm 版本，使用 fallback: ${PNPM_VERSION}"
-else
-    echo "pnpm version: ${PNPM_VERSION}"
-fi
+PNPM_VERSION="12.16.1"
+echo "Using pnpm version: ${PNPM_VERSION}"
 
 PNPM_URL="https://github.com/pnpm/pnpm/releases/download/v${PNPM_VERSION}/pnpm-${PNPM_ARCH}.tar.gz"
 echo "Downloading ${PNPM_URL}"
 curl -fsSL -o pnpm.tar.gz "$PNPM_URL" || {
-    echo "❌ 下载 pnpm 失败，请检查网络或版本号"
+    echo "❌ 下载 pnpm 失败"
     exit 1
 }
 
 mkdir -p /tmp/pnpm-extract
 python3 - <<PY
 import tarfile
-import sys
 src = "pnpm.tar.gz"
 dst = "/tmp/pnpm-extract"
 print(f"Extracting {src} to {dst} with Python tarfile...")
-try:
-    with tarfile.open(src, "r:gz") as tar:
-        tar.extractall(path=dst)
-    print("pnpm extract done.")
-except Exception as e:
-    print(f"Extract failed: {e}", file=sys.stderr)
-    sys.exit(1)
+with tarfile.open(src, "r:gz") as tar:
+    tar.extractall(path=dst)
+print("pnpm extract done.")
 PY
 
-# 找到解压出来的 pnpm 二进制并安装
-PNPM_BIN=$(find /tmp/pnpm-extract -type f -name 'pnpm' -o -name 'pnpm-*' | head -1 || true)
-if [ -z "$PNPM_BIN" ] || [ ! -f "$PNPM_BIN" ]; then
-    echo "Failed to find pnpm binary after extract. Contents:"
-    find /tmp/pnpm-extract -type f || true
+# 直接使用顶层的 pnpm 文件（解压后就是这个）
+PNPM_BIN="/tmp/pnpm-extract/pnpm"
+if [ ! -f "$PNPM_BIN" ]; then
+    echo "Failed to find pnpm binary at $PNPM_BIN. Contents:"
+    find /tmp/pnpm-extract -maxdepth 2 -type f || true
     exit 1
 fi
 echo "Found pnpm binary: $PNPM_BIN"
