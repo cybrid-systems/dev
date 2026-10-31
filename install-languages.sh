@@ -9,13 +9,15 @@ echo "=== Installing Node.js from official tarball (bypasses nodesource) ==="
 ARCH=$(uname -m)
 if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
     NODE_ARCH="linux-arm64"
+    PNPM_ARCH="linux-arm64"
     echo "检测到 arm64 架构，使用 linux-arm64 tarball"
 else
     NODE_ARCH="linux-x64"
+    PNPM_ARCH="linux-x64"
     echo "检测到 x64 架构，使用 linux-x64 tarball"
 fi
 
-# ====================== 动态获取最新版本 ======================
+# ====================== 动态获取最新 Node.js 版本 ======================
 echo "=== 正在动态获取最新 Node.js 版本 ==="
 NODE_VERSION=$(curl -sL --max-time 15 https://nodejs.org/dist/index.json | grep -o '"version":"v[^"]*"' | head -1 | cut -d'"' -f4 | tr -d 'v' || true)
 if [ -z "$NODE_VERSION" ]; then
@@ -29,33 +31,56 @@ NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_
 cd /tmp
 curl -fsSL -o node.tar.xz "$NODE_URL"
 
-# 用 Python tarfile 解压，避开系统 tar 的 openat2 问题
+# 用 Python tarfile 解压 Node.js
 sudo mkdir -p /usr/local/lib/nodejs
 python3 - <<PY
 import tarfile
-import os
-
 src = "node.tar.xz"
 dst = "/usr/local/lib/nodejs"
 print(f"Extracting {src} to {dst} with Python tarfile...")
 with tarfile.open(src, "r:xz") as tar:
     tar.extractall(path=dst)
-print("Extract done.")
+print("Node.js extract done.")
 PY
 
 sudo ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-${NODE_ARCH}/bin/* /usr/local/bin/
-
 rm -f node.tar.xz
 echo "Node.js ${NODE_VERSION} (${NODE_ARCH}) 安装完成"
 
-# === 安装 pnpm（用 npm 全局安装，避开 get.pnpm.io 脚本里的 tar）===
-echo "=== Installing pnpm via npm ==="
-npm install -g pnpm@latest
+# ====================== 安装 pnpm（官方独立二进制 + Python 解压） ======================
+echo "=== Installing pnpm from official binary ==="
+PNPM_VERSION=$(curl -sL https://api.github.com/repos/pnpm/pnpm/releases/latest | grep -o '"tag_name":"v[^"]*"' | head -1 | cut -d'"' -f4 | tr -d 'v')
+echo "pnpm version: ${PNPM_VERSION}"
+
+PNPM_URL="https://github.com/pnpm/pnpm/releases/download/v${PNPM_VERSION}/pnpm-${PNPM_ARCH}.tar.gz"
+curl -fsSL -o pnpm.tar.gz "$PNPM_URL"
+
+mkdir -p /tmp/pnpm-extract
+python3 - <<PY
+import tarfile
+src = "pnpm.tar.gz"
+dst = "/tmp/pnpm-extract"
+print(f"Extracting {src} to {dst} with Python tarfile...")
+with tarfile.open(src, "r:gz") as tar:
+    tar.extractall(path=dst)
+print("pnpm extract done.")
+PY
+
+# 找到解压出来的 pnpm 二进制并安装
+PNPM_BIN=$(find /tmp/pnpm-extract -type f -name pnpm -o -name 'pnpm-*' | head -1)
+if [ -z "$PNPM_BIN" ]; then
+    echo "Failed to find pnpm binary after extract"
+    find /tmp/pnpm-extract -type f
+    exit 1
+fi
+sudo install -m 755 "$PNPM_BIN" /usr/local/bin/pnpm
+rm -rf /tmp/pnpm-extract pnpm.tar.gz
+
 hash -r
 pnpm --version
 echo "pnpm installed successfully"
 
-# 为 dev 用户设置 pnpm 环境（可选，npm -g 已经在 /usr/local/bin）
+# 为 dev 用户设置 pnpm 环境
 mkdir -p /home/dev/.local/share/pnpm
 chown -R dev:dev /home/dev/.local
 
@@ -72,10 +97,8 @@ echo "✅ Node.js + pnpm installed successfully"
 pnpm add -g openclaw@latest || echo "openclaw skipped (optional)"
 
 # ==================== Python 工具 ====================
-# 先确保/home/dev/.cache权限（可选，但防止root写问题）
 chown -R dev:dev /home/dev 2>/dev/null || true
 
-# 以dev用户运行pipx，避免权限问题
 su - dev -c "pipx ensurepath"
 su - dev -c "pipx install isort pipenv nose pytest black pyflakes"
 echo "正在为 dev 用户安装 pexpect 并验证..."
@@ -86,15 +109,11 @@ if ! su - dev -c "
     echo "❌ pexpect 安装失败或验证不通过，请检查网络或 Python 环境"
     exit 1
 fi
-# --- 新增：给 root 用户全局安装（CI 直接可用）---
 pip install --break-system-packages pexpect
 
 # ==================== Rust + fd ====================
-# 先安装fd-find
 apt-get update && apt-get install -y fd-find && rm -rf /var/lib/apt/lists/*
 
-# 以dev用户运行rustup，避免HOME/euid问题
 su - dev -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable"
 
-# 链接fd
 ln -sf $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
