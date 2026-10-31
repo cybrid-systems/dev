@@ -15,7 +15,7 @@ else
     echo "检测到 x64 架构，使用 linux-x64 tarball"
 fi
 
-# ====================== 动态获取最新版本（不要硬编码！） ======================
+# ====================== 动态获取最新版本 ======================
 echo "=== 正在动态获取最新 Node.js 版本 ==="
 NODE_VERSION=$(curl -sL --max-time 15 https://nodejs.org/dist/index.json | grep -o '"version":"v[^"]*"' | head -1 | cut -d'"' -f4 | tr -d 'v' || true)
 if [ -z "$NODE_VERSION" ]; then
@@ -28,8 +28,21 @@ NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_
 
 cd /tmp
 curl -fsSL -o node.tar.xz "$NODE_URL"
+
+# 用 Python tarfile 解压，避开系统 tar 的 openat2 问题
 sudo mkdir -p /usr/local/lib/nodejs
-sudo tar -xJf node.tar.xz -C /usr/local/lib/nodejs
+python3 - <<PY
+import tarfile
+import os
+
+src = "node.tar.xz"
+dst = "/usr/local/lib/nodejs"
+print(f"Extracting {src} to {dst} with Python tarfile...")
+with tarfile.open(src, "r:xz") as tar:
+    tar.extractall(path=dst)
+print("Extract done.")
+PY
+
 sudo ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-${NODE_ARCH}/bin/* /usr/local/bin/
 
 rm -f node.tar.xz
