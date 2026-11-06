@@ -1,61 +1,137 @@
 #!/bin/bash
+# Aura build dependencies on Ubuntu 26.
+# GCC 16.2, latest CMake, distro Ninja (1.13.2, current upstream), mold,
+# libgit2, and the Python tools build.py gate/CI install.
 set -euo pipefail
 
-GCC_VERSION=${GCC_VERSION:-16}
+GCC_VERSION="${GCC_VERSION:-16}"
+CMAKE_VERSION="${CMAKE_VERSION:-4.5.0-rc3}"
 export DEBIAN_FRONTEND=noninteractive
-export TZ=Asia/Shanghai
+export TZ="${TZ:-Asia/Shanghai}"
 
-echo "=== 开始安装所有系统依赖（Ubuntu 26.04 + GCC ${GCC_VERSION}） ==="
+echo "=== Aura build packages (GCC ${GCC_VERSION}, CMake ${CMAKE_VERSION}) ==="
 
-#!/bin/bash
-set -euo pipefail
+apt-get update
+apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    xz-utils \
+    git \
+    sudo \
+    zsh \
+    gnupg \
+    locales \
+    tzdata \
+    pkg-config \
+    make \
+    ninja-build \
+    mold \
+    python3 \
+    python3-pip \
+    python3-venv \
+    libc6-dev \
+    "gcc-${GCC_VERSION}" \
+    "g++-${GCC_VERSION}" \
+    libgit2-dev \
+    zlib1g-dev \
+    libzstd-dev \
+    libxml2-dev
 
-GCC_VERSION=${GCC_VERSION:-16}
-export DEBIAN_FRONTEND=noninteractive
-export TZ=Asia/Shanghai
+# libc6-dev is only a Recommends of gcc-16. Headers are required to compile.
+update-alternatives --install /usr/bin/gcc gcc "/usr/bin/gcc-${GCC_VERSION}" 60 \
+    --slave /usr/bin/g++ g++ "/usr/bin/g++-${GCC_VERSION}"
+update-alternatives --install /usr/bin/cc cc "/usr/bin/gcc-${GCC_VERSION}" 60
+update-alternatives --install /usr/bin/c++ c++ "/usr/bin/g++-${GCC_VERSION}" 60
+update-alternatives --set gcc "/usr/bin/gcc-${GCC_VERSION}"
+update-alternatives --set cc "/usr/bin/gcc-${GCC_VERSION}"
+update-alternatives --set c++ "/usr/bin/g++-${GCC_VERSION}"
 
-echo "=== 开始安装所有系统依赖（Ubuntu 26.04 + GCC 15.2.0） ==="
+gcc_line=$(gcc --version | head -n 1)
+echo "gcc: ${gcc_line}"
+echo "${gcc_line}" | grep -q '16\.2\.' || {
+    echo "expected GCC 16.2, got: ${gcc_line}" >&2
+    exit 1
+}
 
-sudo apt-get update
-sudo apt-get install -y --no-install-recommends \
-    software-properties-common openssh-client curl gnupg wget git
+if [ -z "$(find /usr/lib/gcc -name 'libstdc++.modules.json' -print -quit)" ]; then
+    echo "g++-${GCC_VERSION} did not ship libstdc++.modules.json (import std)" >&2
+    exit 1
+fi
+if [ -z "$(find /usr/lib/gcc -name 'libstdc++exp.a' -print -quit)" ]; then
+    echo "g++-${GCC_VERSION} did not ship libstdc++exp.a" >&2
+    exit 1
+fi
 
-date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)Z" || true
+locale-gen en_US.UTF-8
+update-locale LANG=en_US.UTF-8
+ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+dpkg-reconfigure --frontend noninteractive tzdata
 
-sudo apt-get install -y --no-install-recommends \
-    build-essential apt-utils sudo gosu htop iotop tree less \
-    vim tmux zsh ack-grep pandoc bear net-tools bc libelf-dev libncurses-dev \
-    libssl-dev libxml2-dev libedit-dev libz-dev libcurl4-openssl-dev \
-    libxpm-dev libjpeg-dev libpng-dev libgif-dev libtiff-dev \
-    libgnutls28-dev pkg-config fontconfig libjansson-dev \
-    fonts-noto-color-emoji shfmt glslang-tools libgit2-dev \
-    libtree-sitter-dev libx11-dev libxt-dev libxaw7-dev libxmu-dev \
-    python3-dev python3-pip python3-venv python3-full pipx \
-    markdown shellcheck ispell ripgrep fd-find libtool \
-    xvfb libgtk2.0-0t64 libglib2.0-0 libcairo2 libpango-1.0-0 \
-    libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 \
-    texinfo flex bison libgmp3-dev libmpfr-dev libmpc-dev \
-    locales tzdata
+# Pinned to aura requirements-dev.txt (ruff, pexpect). CI reinstalls the
+# same file; these are on PATH so a local ./build.py gate works.
+python3 -m pip install --no-cache-dir --break-system-packages \
+    'ruff==0.17.3' \
+    'pexpect==4.9.0'
 
-# === Ubuntu 26.04 专属修改：无需 PPA，直接安装 GCC 15.2 + libgccjit ===
-sudo apt-get update
+echo "=== CMake ${CMAKE_VERSION} ==="
+arch=$(uname -m)
+case "$arch" in
+    x86_64) cmake_arch=linux-x86_64 ;;
+    aarch64 | arm64) cmake_arch=linux-aarch64 ;;
+    *)
+        echo "unsupported architecture: $arch" >&2
+        exit 1
+        ;;
+esac
 
-sudo apt-get install -y --no-install-recommends \
-    gcc-${GCC_VERSION} g++-${GCC_VERSION} \
-    libgccjit-${GCC_VERSION}-dev
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+curl -fL --retry 5 --retry-delay 2 \
+    -o "$tmp/cmake.tar.gz" \
+    "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-${cmake_arch}.tar.gz"
 
-sudo update-alternatives --remove-all gcc || true
+python3 - "$tmp/cmake.tar.gz" /usr/local <<'PY'
+import sys
+import tarfile
 
-sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 \
-    --slave /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION}
-sudo update-alternatives --set gcc /usr/bin/gcc-${GCC_VERSION}
+src, dst = sys.argv[1], sys.argv[2]
+with tarfile.open(src, "r:gz") as tar:
+    members = []
+    for member in tar.getmembers():
+        name = member.name[2:] if member.name.startswith("./") else member.name
+        parts = name.split("/", 1)
+        if len(parts) == 2 and parts[1]:
+            member.name = parts[1]
+            members.append(member)
+    tar.extractall(path=dst, members=members)
+PY
 
-sudo locale-gen en_US.UTF-8
-echo "LANG=en_US.UTF-8" | sudo tee /etc/default/locale
-sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-sudo dpkg-reconfigure --frontend noninteractive tzdata
+cmake_line=$(cmake --version | head -n 1)
+echo "cmake: ${cmake_line}"
+echo "${cmake_line}" | grep -q "${CMAKE_VERSION}" || {
+    echo "cmake version mismatch: ${cmake_line}" >&2
+    exit 1
+}
 
-git config --global merge.conflictstyle diff3
+echo "=== toolchain smoke (gcc 16.2 + mold) ==="
+cat >"$tmp/atomic.cpp" <<'EOF'
+#include <atomic>
+int main() {
+    std::atomic<int> value{0};
+    value.fetch_add(1, std::memory_order_relaxed);
+    return value.load(std::memory_order_relaxed) == 1 ? 0 : 1;
+}
+EOF
+g++ -std=c++26 -fcontracts -freflection -fuse-ld=mold \
+    "$tmp/atomic.cpp" -o "$tmp/atomic"
+"$tmp/atomic"
 
-sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-echo "=== 所有依赖安装完成（Ubuntu 26.04 + GCC 15.2.0 + libgccjit 已就绪） ==="
+echo "ninja $(ninja --version)"
+echo "mold $(mold --version | head -n 1)"
+echo "libgit2 $(pkg-config --modversion libgit2)"
+python3 -c 'import pexpect'
+ruff --version
+
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+echo "=== base packages ready ==="

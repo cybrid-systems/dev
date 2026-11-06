@@ -1,4 +1,6 @@
 #!/bin/bash
+# Not used by the Aura-minimal Dockerfile. Left for a full workstation
+# image (CMake-from-git era, Oh My Zsh, tmux). The image build is build.sh.
 set -euo pipefail
 
 echo "=== 安装基础开发工具链 ==="

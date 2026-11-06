@@ -1,4 +1,6 @@
 #!/bin/bash
+# Not used by the Aura-minimal Dockerfile. Node, pnpm, Rust, and OpenClaw
+# are not Aura build dependencies.
 set -euo pipefail
 echo "=== 安装语言工具 (NodeJS/Python/Rust) ==="
 export HOME=/home/dev

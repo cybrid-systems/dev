@@ -1,117 +1,65 @@
 # dev
-A Docker-based, reproducible development environment for the Cybrid Systems/NovaSim project. Built on Ubuntu 26.04 with the latest LLVM/Clang toolchain.
 
-## use Buildx
+Ubuntu 26.10 image with the packages required to build [Aura](https://github.com/cybrid-systems/aura).
+
+The image keeps GCC 16.2, the newest CMake release, Ninja, and the newest LLVM,
+then drops everything Aura's build does not run. The upstream LLVM tarball is
+about 12GB unpacked. This image keeps roughly 1GB of it: `clang`, `clang-format`,
+`clang-tidy`, `llvm-cov`, `llvm-profdata`, `llvm-symbolizer`, `ld.lld`, and the
+static libraries behind `core orcjit native nativecodegen mc`.
+
+| Tool | Version | Source |
+| --- | --- | --- |
+| Ubuntu | 26.10 | base image |
+| GCC / G++ | 16.2 | Ubuntu `gcc-16` / `g++-16` |
+| CMake | 4.5.0-rc3 | Kitware release (newest; 4.4.5 is the newest stable) |
+| Ninja | 1.13.2 | Ubuntu `ninja-build` (same as upstream) |
+| LLVM / Clang | 23.1.5 | upstream tarball, subset installed by `install-llvm.sh` |
+| mold | Ubuntu 26.10 | `mold` package, linker Aura prefers |
+| libgit2 | Ubuntu 26.10 | `libgit2-dev` |
+| Python | Ubuntu 26.10 | `ruff==0.17.3`, `pexpect==4.9.0` |
+
+Not in the image: Emacs, Node, pnpm, Rust, OpenClaw, Flang, MLIR, LLDB.
+`build-emacs.sh` and `install-languages.sh` are unused by this Dockerfile.
+
+A build needs temporary disk for the full LLVM tarball (about 15GB) in the
+LLVM `RUN`. The unused files are deleted in that same instruction, so they
+are not part of the image layer.
+
+## build
+
 ```bash
 docker buildx create --use
+docker buildx build --platform linux/arm64 -t aura-min:local . --load
+docker buildx build --platform linux/amd64 -t aura-min:local . --load
 ```
 
-orbstack
-``` bash
-docker buildx create --name orb-multi \
-  --driver docker-container \
-  --use \
-  --bootstrap
-```
+Override a pin at build time:
 
-## build and deploy
-
-build
-``` bash
-docker buildx build --platform linux/arm64 -t ghcr.io/cybrid-systems/dev:arm64 . --load
-docker buildx build --platform linux/amd64 -t ghcr.io/cybrid-systems/dev:amd64 . --load
-```
-
-deploy both
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 \
-    -t ghcr.io/cybrid-systems/dev \
-    -t ghcr.io/cybrid-systems/dev:v1.1.1 \
-    . --push
-```
-
-deploy arm64
-
-``` bash
-docker buildx build \
-  --platform linux/arm64 \
-  -t ghcr.io/cybrid-systems/dev:arm64 \
-  --push .
-```
-
-deploy amd64
-
-``` bash
-docker buildx build \
-  --platform linux/amd64 \
-  -t ghcr.io/cybrid-systems/dev:amd64 \
-  --push .
-```
-
-deploy merge
-
-``` bash
-docker buildx imagetools create \
-  ghcr.io/cybrid-systems/dev:amd64 \
-  ghcr.io/cybrid-systems/dev:arm64 \
-  -t ghcr.io/cybrid-systems/dev:latest \
-  -t ghcr.io/cybrid-systems/dev:v1.1.1
-```
-
-inspect
-``` bash
-docker buildx imagetools inspect ghcr.io/cybrid-systems/dev:latest
-```
-
-or
-``` bash
-docker manifest inspect ghcr.io/cybrid-systems/dev:latest
+docker build \
+  --build-arg LLVM_VERSION=23.1.5 \
+  --build-arg CMAKE_VERSION=4.5.0-rc3 \
+  -t aura-min:local .
 ```
 
 ## test
 
 ```bash
-docker run -it --rm -v `pwd`/..:/root/code -w /root/code ghcr.io/cybrid-systems/dev /bin/zsh
-```
-
-``` bash
-./test-image.sh
+IMAGE=aura-min:local ./test-image.sh
 ```
 
 ## run
 
 ```bash
-docker run --privileged -d -it --name angel -v `pwd`:/root/code -w /root/code ghcr.io/cybrid-systems/dev
-docker exec -it --detach-keys="ctrl-z,z" angel /bin/zsh
-git config --global user.name $your_name
-git config --global user.email $your_email
-```
-
-``` bash
-docker run -d -it --name angel \
+docker run -d -it --name aura-dev \
   --net host \
   --cap-add=SYS_PTRACE \
   -e USER_UID=$(id -u) \
   -e USER_GID=$(id -g) \
-  -v $(pwd):/home/dev/code \
+  -v "$(pwd)":/home/dev/code \
   -w /home/dev/code \
-  ghcr.io/cybrid-systems/dev:latest
+  aura-min:local
 
-docker exec -u root angel chown -R dev:dev /home/dev
-docker exec -it -u dev angel /bin/zsh -l
-```
-
-## openclaw
-
-```bash
-pnpm add -g openclaw@2026.10.7
-openclaw onboard
-openclaw config set gateway.bind lan
-openclaw config set agents.defaults.workspace ~/code/workspace
-openclaw onboard --auth-choice deepseek-api-key
-openclaw onboard --auth-choice zai-coding-cn
-echo "ghp_*" > ~/.github-token
-openclaw models list --provider zai
-openclaw models set zai/glm-5.3
-openclaw gateway
+docker exec -it -u dev aura-dev /bin/zsh -l
 ```

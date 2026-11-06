@@ -1,149 +1,204 @@
 #!/bin/bash
+# Install the latest LLVM official release, then keep only the pieces Aura
+# links and runs. The upstream tarball is ~12GB unpacked (Flang, MLIR, LLDB,
+# every target's static archives, and statically linked tools). Aura needs:
+#   - clang/clang++            module BMI build and clang-tidy compile DB
+#   - clang-format, clang-tidy gate
+#   - llvm-cov, llvm-profdata  ./build.py coverage
+#   - llvm-symbolizer          ASan/UBSan/TSan stacks
+#   - ld.lld                   link fallback when mold cannot be used
+#   - llvm-config + the static libs for
+#       core orcjit native nativecodegen mc
+#     (CMakeLists.txt llvm_map_components_to_libnames)
+#   - lib/clang/<major>        clang resource directory (builtins + headers)
+#   - include/llvm, include/clang
 set -euo pipefail
 
-# 1. 架构检测与变量设置
-ARCH=$(uname -m)
-VERSION="23.1.4"
-TARGET_PYTHON="libpython3.11.so.1.0"
-INSTALL_DIR="/usr/local"
-LIB_PATH=""
+LLVM_VERSION="${LLVM_VERSION:-23.1.5}"
+PREFIX="${LLVM_PREFIX:-/usr/local}"
+COMPONENTS=(core orcjit native nativecodegen mc)
 
-echo "---------------------------------------"
-echo "检测到系统架构: $ARCH"
+echo "=== LLVM ${LLVM_VERSION} (Aura subset) ==="
 
-if [ "$ARCH" == "x86_64" ]; then
-    FILENAME="LLVM-${VERSION}-Linux-X64.tar.xz"
-    LIB_PATH="/usr/lib/x86_64-linux-gnu"
-elif [ "$ARCH" == "aarch64" ]; then
-    FILENAME="LLVM-${VERSION}-Linux-ARM64.tar.xz"
-    LIB_PATH="/usr/lib/aarch64-linux-gnu"
+arch=$(uname -m)
+case "$arch" in
+    x86_64) llvm_arch=X64 ;;
+    aarch64 | arm64) llvm_arch=ARM64 ;;
+    *)
+        echo "unsupported architecture: $arch" >&2
+        exit 1
+        ;;
+esac
+
+if [ -n "${LLVM_STAGE:-}" ]; then
+    stage="$LLVM_STAGE"
+    download_root=""
 else
-    echo "错误: 不支持的架构 $ARCH"
+    download_root=$(mktemp -d)
+    stage="$download_root"
+    tarball="$download_root/llvm.tar.xz"
+    url="https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/LLVM-${LLVM_VERSION}-Linux-${llvm_arch}.tar.xz"
+    echo "downloading ${url}"
+    curl -fL --retry 5 --retry-delay 2 -o "$tarball" "$url"
+    python3 - "$tarball" "$stage/root" <<'PY'
+import os
+import sys
+import tarfile
+
+src, dst = sys.argv[1], sys.argv[2]
+os.makedirs(dst, exist_ok=True)
+with tarfile.open(src, "r:xz") as tar:
+    members = []
+    for member in tar.getmembers():
+        name = member.name[2:] if member.name.startswith("./") else member.name
+        parts = name.split("/", 1)
+        if len(parts) == 2 and parts[1]:
+            member.name = parts[1]
+            members.append(member)
+    tar.extractall(path=dst, members=members)
+PY
+    rm -f "$tarball"
+    stage="$download_root/root"
+fi
+
+if [ ! -x "$stage/bin/llvm-config" ]; then
+    echo "llvm-config missing under $stage" >&2
     exit 1
 fi
 
-# ✅ 已改为 LLVM 官方 URL
-URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${VERSION}/${FILENAME}"
+major="${LLVM_VERSION%%.*}"
+install_file() {
+    local rel="$1"
+    local src="$stage/$rel"
+    local dst="$PREFIX/$rel"
+    if [ ! -e "$src" ]; then
+        echo "missing $src" >&2
+        exit 1
+    fi
+    mkdir -p "$(dirname "$dst")"
+    rm -rf "$dst"
+    cp -a "$src" "$dst"
+}
 
-# 2. 下载与安装
-echo "正在从 LLVM 官方源下载 LLVM ${VERSION}..."
-wget -c "$URL" -O "/tmp/$FILENAME"
+install_file "bin/clang-${major}"
+ln -sfn "clang-${major}" "$PREFIX/bin/clang"
+ln -sfn clang "$PREFIX/bin/clang++"
+install_file bin/clang-format
+install_file bin/clang-tidy
+install_file bin/lld
+ln -sfn lld "$PREFIX/bin/ld.lld"
+for tool in llvm-config llvm-cov llvm-profdata llvm-symbolizer; do
+    install_file "bin/$tool"
+done
 
-echo "正在用 Python tarfile 解压并安装到 ${INSTALL_DIR}（避开系统 tar）..."
-python3 - <<PY
-import tarfile
-import os
+for dir in llvm llvm-c clang clang-c; do
+    install_file "include/$dir"
+done
+install_file lib/cmake/llvm
+install_file "lib/clang/${major}"
 
-src = "/tmp/$FILENAME"
-dst = "$INSTALL_DIR"
-print(f"Extracting {src} to {dst} with strip-components=1...")
+read -r -a libs <<<"$("$stage/bin/llvm-config" --link-static --libnames "${COMPONENTS[@]}")"
+if [ "${#libs[@]}" -lt 8 ]; then
+    echo "llvm-config --libnames returned too few libraries: ${libs[*]:-}" >&2
+    exit 1
+fi
+for lib in "${libs[@]}"; do
+    install_file "lib/$lib"
+done
 
-with tarfile.open(src, "r:xz") as tar:
-    members = []
-    for m in tar.getmembers():
-        # strip-components=1
-        if m.name.startswith("./"):
-            m.name = m.name[2:]
-        parts = m.name.split("/", 1)
-        if len(parts) == 2 and parts[1]:
-            m.name = parts[1]
-            members.append(m)
-        # 跳过顶层目录本身
-    tar.extractall(path=dst, members=members)
-print("Extract done.")
+# find_package(LLVM) refuses to configure if any imported target's file is
+# missing, including opt, llc, Flang, and Polly. Drop those entries. Targets
+# Aura links still have their static archives and IMPORTED_LOCATION.
+python3 - "$PREFIX" <<'PY'
+import sys
+from pathlib import Path
+
+prefix = Path(sys.argv[1])
+exports = prefix / "lib/cmake/llvm/LLVMExports-release.cmake"
+text = exports.read_text()
+marker = "# Import target \""
+head, _, rest = text.partition(marker)
+blocks = rest.split(marker)
+kept = []
+dropped = 0
+for block in blocks:
+    if not block:
+        continue
+    body = marker + block
+    missing = False
+    for line in body.splitlines():
+        token = '"${_IMPORT_PREFIX}'
+        if token not in line:
+            continue
+        rel = line.split(token, 1)[1]
+        rel = rel.split('"', 1)[0]
+        if not (prefix / rel.lstrip("/")).exists():
+            missing = True
+            break
+    if missing:
+        dropped += 1
+        continue
+    kept.append(body)
+exports.write_text(head + "".join(kept))
+print(f"LLVMExports-release.cmake: dropped {dropped} targets with missing files")
 PY
 
-rm -f "/tmp/$FILENAME"
-
-# 3. 修复 lldb 的 Python 依赖（保留原逻辑）
-echo "检查 lldb 的 Python 动态库依赖..."
-if [ ! -f "$LIB_PATH/$TARGET_PYTHON" ]; then
-    echo "未发现 $TARGET_PYTHON，正在尝试建立软链接..."
-    EXISTING_PY=$(find /usr/lib -name "libpython3.*.so.1.0" | head -n 1)
-    if [ -n "$EXISTING_PY" ]; then
-        echo "发现可用库: $EXISTING_PY"
-        ln -sf "$EXISTING_PY" "$LIB_PATH/$TARGET_PYTHON"
-        echo "软链接创建成功"
-    else
-        echo "警告: 未找到 libpython3.x.so.1.0，建议执行: apt install -y python3-dev"
-    fi
+if [ -n "$download_root" ]; then
+    rm -rf "$download_root"
 fi
 
-# 4. 【关键修复】lldb 的 libxml2 依赖（Ubuntu 25.10+/26.04 专用）
-echo "修复 lldb 的 libxml2 依赖 (Ubuntu 26.04 使用 libxml2.so.16)..."
+echo "=== LLVM subset layout ==="
+du -sh "$PREFIX/bin" "$PREFIX/lib" "$PREFIX/include" "$PREFIX/lib/clang/${major}" || true
+echo "static libs kept: ${#libs[@]}"
 
-apt-get update -qq
-apt-get install -y --no-install-recommends libxml2-16 patchelf
-
-# 1. 创建兼容软链接（给其他可能依赖 .so.2 的软件用）
-LIBXML2_REAL=$(find /usr/lib -name 'libxml2.so.16*' -type f | head -n 1)
-if [ -n "$LIBXML2_REAL" ]; then
-    ln -sf "$LIBXML2_REAL" "$LIB_PATH/libxml2.so.2"
-    echo "✅ 已创建软链接: libxml2.so.2 → $LIBXML2_REAL"
-else
-    echo "⚠️  未找到 libxml2.so.16*"
-fi
-
-# 2. 使用 patchelf 直接修改 liblldb.so 的依赖（消除 warning 的关键）
-echo "使用 patchelf 修改 liblldb 的依赖..."
-LLDB_SO=$(find "$INSTALL_DIR/lib" -name 'liblldb.so.22*' -type f | head -n 1)
-if [ -n "$LLDB_SO" ] && command -v patchelf >/dev/null 2>&1; then
-    patchelf --replace-needed libxml2.so.2 libxml2.so.16 "$LLDB_SO" 2>/dev/null || true
-    echo "✅ patchelf 修改完成: $LLDB_SO 现在直接依赖 libxml2.so.16"
-else
-    echo "⚠️  patchelf 修改失败（未找到 liblldb.so 或 patchelf）"
-fi
-
-# 4b. lld / llvm-mt 的 ICU 依赖 (cybrid-systems/aura#4773)
-echo "修复 lld / llvm-mt 的 libicu*.so.70 依赖..."
-ICU70_DIR="$INSTALL_DIR/lib/llvm-icu70"
-if [ "$ARCH" == "x86_64" ]; then
-    ICU70_DEB_URL="http://archive.ubuntu.com/ubuntu/pool/main/i/icu/libicu70_70.1-2_amd64.deb"
-else
-    ICU70_DEB_URL="http://ports.ubuntu.com/ubuntu-ports/pool/main/i/icu/libicu70_70.1-2_arm64.deb"
-fi
-NEED_ICU70=()
-for bin in "$INSTALL_DIR"/bin/*; do
+export PATH="$PREFIX/bin:${PATH}"
+missing=0
+for bin in "$PREFIX"/bin/*; do
     [ -f "$bin" ] && [ ! -L "$bin" ] || continue
-    if ldd "$bin" 2>/dev/null | grep -q 'libicu[a-z0-9]*\.so\.70 => not found'; then
-        NEED_ICU70+=("$bin")
+    ldd_out=$(ldd "$bin" 2>/dev/null || true)
+    case "$ldd_out" in
+        *"not found"*)
+            echo "unresolved libraries: $bin" >&2
+            printf '%s\n' "$ldd_out" >&2
+            missing=1
+            ;;
+    esac
+done
+[ "$missing" -eq 0 ]
+
+read -r -a installed_libs <<<"$(llvm-config --link-static --libnames "${COMPONENTS[@]}")"
+for lib in "${installed_libs[@]}"; do
+    if [ ! -f "$PREFIX/lib/$lib" ]; then
+        echo "installed llvm-config wants missing $PREFIX/lib/$lib" >&2
+        exit 1
     fi
 done
-if [ ${#NEED_ICU70[@]} -gt 0 ]; then
-    TMP_ICU=$(mktemp -d)
-    wget -q "$ICU70_DEB_URL" -O "$TMP_ICU/libicu70.deb"
-    dpkg-deb -x "$TMP_ICU/libicu70.deb" "$TMP_ICU/x"
-    mkdir -p "$ICU70_DIR"
-    cp -a "$TMP_ICU"/x/usr/lib/*/libicu*.so.70* "$ICU70_DIR/"
-    rm -rf "$TMP_ICU"
-    for bin in "${NEED_ICU70[@]}"; do
-        patchelf --add-rpath "$ICU70_DIR" "$bin"
-        echo "✅ $bin -> RUNPATH += $ICU70_DIR"
-    done
-fi
 
-# 5. 刷新缓存与验证
-ldconfig
+smoke=$(mktemp -d)
+cat >"$smoke/t.c" <<'EOF'
+#include <stdio.h>
+int main(void) {
+    puts("ok");
+    return 0;
+}
+EOF
+cat >"$smoke/t.cpp" <<'EOF'
+#include <stdio.h>
+int main() {
+    puts("ok");
+    return 0;
+}
+EOF
+clang -fuse-ld=lld "$smoke/t.c" -o "$smoke/t"
+clang++ -fuse-ld=lld "$smoke/t.cpp" -o "$smoke/txx"
+"$smoke/t" >/dev/null
+"$smoke/txx" >/dev/null
+rm -rf "$smoke"
 
-echo "---------------------------------------"
-if command -v clang >/dev/null; then
-    echo "✅ LLVM $VERSION 安装完成！"
-    clang --version | head -n 1
-    lldb --version | head -n 1
-    ld.lld --version | head -n 1
-    MISSING=0
-    for bin in "$INSTALL_DIR"/bin/*; do
-        [ -f "$bin" ] && [ ! -L "$bin" ] || continue
-        if ldd "$bin" 2>/dev/null | grep -q 'not found'; then
-            echo "❌ $bin 缺少动态库:"; ldd "$bin" | grep 'not found'
-            MISSING=1
-        fi
-    done
-    [ "$MISSING" = 0 ] || exit 1
-    printf 'int main(){return 0;}\n' > /tmp/lld_smoke.c
-    clang -fuse-ld=lld /tmp/lld_smoke.c -o /tmp/lld_smoke && /tmp/lld_smoke
-    rm -f /tmp/lld_smoke /tmp/lld_smoke.c
-    echo "✅ ld.lld 冒烟检查通过"
-else
-    echo "安装失败，请检查 PATH 变量。"
-fi
+clang --version | head -n 1
+clang-format --version | head -n 1
+clang-tidy --version | head -n 1
+llvm-cov --version | head -n 1
+llvm-profdata --version | head -n 1
+ld.lld --version | head -n 1
+echo "=== LLVM ${LLVM_VERSION} subset ready ==="

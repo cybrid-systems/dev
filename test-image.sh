@@ -1,73 +1,50 @@
 #!/bin/bash
-# ================================================
-# Lobster Dev Environment (cybrid-systems/dev)
-# 架构无关测试脚本（支持 x86_64 和 arm64）
-# ================================================
+# Smoke-test the Aura-minimal image. Override the tag with IMAGE=...
+set -euo pipefail
 
-set -e
+IMAGE="${IMAGE:-aura-min:local}"
 
-IMAGE="ghcr.io/cybrid-systems/dev:v1.1.1"
-CONTAINER_NAME="lobster-test"
-
-echo "🚀 开始测试 Lobster Dev Environment (自动检测架构)..."
-
-# Docker 检测
 if ! command -v docker >/dev/null 2>&1; then
-    echo "❌ Docker 未安装，请先安装 Docker"
+    echo "docker is not installed" >&2
     exit 1
 fi
-echo "✅ Docker 已安装 ($(which docker))"
 
-# 显示当前架构（方便确认）
-echo "🖥️  当前宿主机架构: $(uname -m)"
+echo "host arch: $(uname -m)"
+echo "image: ${IMAGE}"
 
-# 启动测试容器（去掉 --platform，让 Docker 自动选择）
-echo "🧪 启动容器并执行功能测试 (使用 zsh)..."
-docker run --rm -it \
-    --name "$CONTAINER_NAME" \
-    "$IMAGE" /bin/zsh -l -c '
-set -e
-echo "✅ 容器启动成功 - 使用 zsh"
-echo "🖥️  容器架构: $(uname -m)"
+docker run --rm "$IMAGE" /bin/zsh -l -c '
+set -euo pipefail
+echo "arch: $(uname -m)"
+echo "gcc: $(gcc --version | head -n 1)"
+gcc --version | head -n 1 | grep -q "16\.2\."
+echo "cmake: $(cmake --version | head -n 1)"
+echo "ninja: $(ninja --version)"
+echo "mold: $(mold --version | head -n 1)"
+echo "clang: $(clang --version | head -n 1)"
+echo "lld: $(ld.lld --version | head -n 1)"
+echo "clang-format: $(clang-format --version | head -n 1)"
+echo "clang-tidy: $(clang-tidy --version | head -n 1)"
+echo "llvm-cov: $(llvm-cov --version | head -n 1)"
+echo "llvm-profdata: $(llvm-profdata --version | head -n 1)"
+llvm-config --link-static --libnames core orcjit native nativecodegen mc >/dev/null
+echo "libgit2: $(pkg-config --modversion libgit2)"
+python3 -c "import pexpect"
+ruff --version
+test -n "$(find /usr/lib/gcc -name libstdc++.modules.json -print -quit)"
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🔧 工具版本检查"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Clang / LLVM :" && clang --version | head -n 1
-echo "GCC          :" && gcc --version | head -n 1
-echo "Rust         :" && rustc --version
-echo "Cargo        :" && cargo --version
-echo "Node.js      :" && node --version
-echo "npm          :" && npm --version
-echo "Python       :" && python3 --version
-echo "CMake        :" && cmake --version | head -n 1
-echo "Ninja        :" && ninja --version
-echo "ld.lld       :" && ld.lld --version | head -n 1
-echo "fd           :" && fd --version
-echo "rg           :" && rg --version | head -n 1
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-echo "🧪 编译测试 (Hello World)"
-cat > /tmp/test.c << EOF
-#include <stdio.h>
-int main() { printf("✅ LLVM/Clang + GCC 编译通过！\n"); return 0;  }
+cat > /tmp/atomic.cpp << "EOF"
+#include <atomic>
+int main() {
+    std::atomic<int> value{0};
+    value.fetch_add(1, std::memory_order_relaxed);
+    return value.load(std::memory_order_relaxed) == 1 ? 0 : 1;
+}
 EOF
-clang /tmp/test.c -o /tmp/test_clang && /tmp/test_clang
-gcc /tmp/test.c -o /tmp/test_gcc && /tmp/test_gcc
-clang -fuse-ld=lld /tmp/test.c -o /tmp/test_lld && /tmp/test_lld
-
-cat > /tmp/test.rs << EOF
-fn main() { println!("✅ Rust 编译通过！");  }
-EOF
-rustc /tmp/test.rs -o /tmp/test_rust && /tmp/test_rust
-
-echo "🧪 Node.js 测试"
-node -e '\''console.log("✅ Node.js 运行正常")'\''
-
-echo "🧪 Python 测试"
-python3 -c '\''print("✅ Python 运行正常")'\''
-
-echo "🎉 所有测试通过！Lobster Dev Environment 功能完整。"
+g++ -std=c++26 -fcontracts -freflection -fuse-ld=mold /tmp/atomic.cpp -o /tmp/atomic_mold
+clang++ -fuse-ld=lld /tmp/atomic.cpp -o /tmp/atomic_lld
+/tmp/atomic_mold
+/tmp/atomic_lld
+echo "aura toolchain smoke passed"
 '
 
-echo "✅ 测试完成！"
+echo "image test passed"

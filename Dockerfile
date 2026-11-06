@@ -1,12 +1,28 @@
-FROM ubuntu:26.10 AS base
-ENV GCC_VERSION=16
-ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=en_US.UTF-8
-ENV TZ=Asia/Shanghai
+FROM ubuntu:26.10
+
+# Aura-minimal image.
+# Ubuntu 26.10, GCC 16.2, CMake 4.5.0-rc3 (newest Kitware release; 4.4.5 is
+# the newest stable), Ninja 1.13.2, LLVM 23.1.5 trimmed to the binaries and
+# static libraries Aura's CMake build actually links.
+# Also: mold, ld.lld, libgit2, Python 3, ruff, pexpect.
+# Not installed: Emacs and its X11/GTK stack, Node, pnpm, Rust, OpenClaw,
+# Flang, MLIR, LLDB, and the rest of the upstream LLVM tarball.
+
+ARG CMAKE_VERSION=4.5.0-rc3
+ARG LLVM_VERSION=23.1.5
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=en_US.UTF-8 \
+    TZ=Asia/Shanghai \
+    GCC_VERSION=16 \
+    CMAKE_VERSION=${CMAKE_VERSION} \
+    LLVM_VERSION=${LLVM_VERSION}
+
 ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
-RUN apt-get update && apt-get install -y sudo
+
+RUN apt-get update && apt-get install -y --no-install-recommends sudo \
+    && rm -rf /var/lib/apt/lists/*
 RUN EXISTING_GROUP=$(getent group ${USER_GID} | cut -d: -f1 || true) && \
     if [ -n "${EXISTING_GROUP}" ] && [ "${EXISTING_GROUP}" != "${USERNAME}" ]; then \
         groupmod -n ${USERNAME} ${EXISTING_GROUP}; \
@@ -22,26 +38,16 @@ RUN EXISTING_GROUP=$(getent group ${USER_GID} | cut -d: -f1 || true) && \
     mkdir -p /etc/sudoers.d && \
     echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} && \
     chmod 0440 /etc/sudoers.d/${USERNAME}
-WORKDIR /home/${USERNAME}
-# Switch to root for build script and stay as root for inheritance
-USER root
-COPY build.sh /home/${USERNAME}/
-RUN bash /home/${USERNAME}/build.sh && rm /home/${USERNAME}/build.sh
-FROM base AS tools
-# Already root from base
-COPY install-dev-tools.sh /home/${USERNAME}/
-RUN bash /home/${USERNAME}/install-dev-tools.sh && rm /home/${USERNAME}/install-dev-tools.sh
-FROM tools AS languages
-# Already root
-COPY install-languages.sh /home/${USERNAME}/
-RUN bash /home/${USERNAME}/install-languages.sh && rm /home/${USERNAME}/install-languages.sh
-FROM languages AS llvm
-# Already root
-COPY install-llvm.sh /home/${USERNAME}/
-RUN bash /home/${USERNAME}/install-llvm.sh && rm /home/${USERNAME}/install-llvm.sh
-# Already root, stay as root for ENTRYPOINT
 
-# Install gosu for proper privilege drop and TTY handling (multi-arch compatible)
+WORKDIR /home/${USERNAME}
+USER root
+
+COPY build.sh install-llvm.sh /home/${USERNAME}/
+RUN bash /home/${USERNAME}/build.sh \
+    && bash /home/${USERNAME}/install-llvm.sh \
+    && rm -f /home/${USERNAME}/build.sh /home/${USERNAME}/install-llvm.sh
+
+# gosu drops privileges and keeps the TTY. Multi-arch binary, verified by signature.
 RUN apt-get update && \
     ARCH="$(dpkg --print-architecture)" && \
     curl -o /usr/local/bin/gosu -SL "https://github.com/tianon/gosu/releases/download/1.17/gosu-${ARCH}" && \
@@ -51,12 +57,11 @@ RUN apt-get update && \
     gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu && \
     rm -rf "${GNUPGHOME}" /usr/local/bin/gosu.asc && \
     chmod +x /usr/local/bin/gosu && \
-    /usr/local/bin/gosu nobody true
+    /usr/local/bin/gosu nobody true && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
-RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
-    rm -f /home/${USERNAME}/*.sh /home/${USERNAME}/*.el
 WORKDIR /home/dev/code
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["zsh"]
