@@ -32,6 +32,7 @@ apt-get install -y --no-install-recommends \
     "gcc-${GCC_VERSION}" \
     "g++-${GCC_VERSION}" \
     libgit2-dev \
+    libcurl4-openssl-dev \
     zlib1g-dev \
     libzstd-dev \
     libxml2-dev
