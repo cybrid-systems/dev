@@ -37,7 +37,9 @@ else
     download_root=$(mktemp -d)
     stage="$download_root"
     tarball="$download_root/llvm.tar.xz"
-    url="https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/LLVM-${LLVM_VERSION}-Linux-${llvm_arch}.tar.xz"
+    # Tsinghua GitHub Release mirror. The release directory name is
+    # "LLVM <version>/" (%20 for the space, %2F for the slash).
+    url="https://mirrors.tuna.tsinghua.edu.cn/github-release/llvm/llvm-project/LLVM%20${LLVM_VERSION}%2FLLVM-${LLVM_VERSION}-Linux-${llvm_arch}.tar.xz"
     echo "downloading ${url}"
     curl -fL --retry 5 --retry-delay 2 -o "$tarball" "$url"
     python3 - "$tarball" "$stage/root" <<'PY'
