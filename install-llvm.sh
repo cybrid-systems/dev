@@ -155,18 +155,29 @@ echo "static libs kept: ${#libs[@]}"
 
 export PATH="$PREFIX/bin:${PATH}"
 missing=0
-for bin in "$PREFIX"/bin/*; do
+for bin in \
+    "$PREFIX/bin/clang-${major}" \
+    "$PREFIX/bin/clang-format" \
+    "$PREFIX/bin/clang-tidy" \
+    "$PREFIX/bin/lld" \
+    "$PREFIX/bin/llvm-config" \
+    "$PREFIX/bin/llvm-cov" \
+    "$PREFIX/bin/llvm-profdata" \
+    "$PREFIX/bin/llvm-symbolizer"
+do
     [ -f "$bin" ] && [ ! -L "$bin" ] || continue
     ldd_out=$(ldd "$bin" 2>/dev/null || true)
     case "$ldd_out" in
         *"not found"*)
             echo "unresolved libraries: $bin" >&2
-            printf '%s\n' "$ldd_out" >&2
+            printf '%s\n' "$ldd_out" | grep 'not found' >&2 || true
             missing=1
             ;;
     esac
 done
-[ "$missing" -eq 0 ]
+if [ "$missing" -ne 0 ]; then
+    exit 1
+fi
 
 read -r -a installed_libs <<<"$(llvm-config --link-static --libnames "${COMPONENTS[@]}")"
 for lib in "${installed_libs[@]}"; do

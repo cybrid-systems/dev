@@ -105,6 +105,10 @@ with tarfile.open(src, "r:gz") as tar:
     tar.extractall(path=dst, members=members)
 PY
 
+# cmake-gui needs libxcb, libfontconfig, and libfreetype. This image does
+# not install them. Remove the binary so it is not left on PATH.
+rm -f /usr/local/bin/cmake-gui
+
 cmake_line=$(cmake --version | head -n 1)
 echo "cmake: ${cmake_line}"
 echo "${cmake_line}" | grep -q "${CMAKE_VERSION}" || {
