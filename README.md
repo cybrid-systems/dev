@@ -74,7 +74,7 @@ docker manifest inspect ghcr.io/cybrid-systems/aura-ci:latest
 ## test
 
 ```bash
-docker run -it --rm -v `pwd`/..:/root/code -w /root/code ghcr.io/cybrid-systems/aura-ci /bin/zsh
+docker run -it --rm -v `pwd`/..:/root/code -w /root/code ghcr.io/cybrid-systems/aura-ci /bin/bash
 ```
 
 ``` bash
@@ -85,7 +85,7 @@ docker run -it --rm -v `pwd`/..:/root/code -w /root/code ghcr.io/cybrid-systems/
 
 ```bash
 docker run --privileged -d -it --name angel -v `pwd`:/root/code -w /root/code ghcr.io/cybrid-systems/aura-ci
-docker exec -it --detach-keys="ctrl-z,z" angel /bin/zsh
+docker exec -it --detach-keys="ctrl-z,z" angel /bin/bash
 git config --global user.name $your_name
 git config --global user.email $your_email
 ```
@@ -101,5 +101,5 @@ docker run -d -it --name angel \
   ghcr.io/cybrid-systems/aura-ci:latest
 
 docker exec -u root angel chown -R dev:dev /home/dev
-docker exec -it -u dev angel /bin/zsh -l
+docker exec -it -u dev angel /bin/bash -l
 ```

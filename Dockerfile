@@ -5,8 +5,9 @@ FROM ubuntu:26.10
 # the newest stable), Ninja 1.13.2, LLVM 23.1.5 trimmed to the binaries and
 # static libraries Aura's CMake build actually links.
 # Also: mold, ld.lld, libgit2, Python 3, ruff, pexpect.
-# Not installed: Emacs and its X11/GTK stack, Node, pnpm, Rust, OpenClaw,
-# Flang, MLIR, LLDB, and the rest of the upstream LLVM tarball.
+# Not installed: zsh, Emacs and its X11/GTK stack, Node, pnpm, Rust,
+# OpenClaw, Flang, MLIR, LLDB, and the rest of the upstream LLVM tarball.
+# The default shell is bash, which Ubuntu already ships.
 
 ARG CMAKE_VERSION=4.5.0-rc3
 ARG LLVM_VERSION=23.1.5
@@ -33,7 +34,7 @@ RUN EXISTING_GROUP=$(getent group ${USER_GID} | cut -d: -f1 || true) && \
     if [ -n "${EXISTING_USER}" ] && [ "${EXISTING_USER}" != "${USERNAME}" ]; then \
         usermod -l ${USERNAME} -d /home/${USERNAME} -m ${EXISTING_USER}; \
     elif ! getent passwd ${USER_UID} >/dev/null; then \
-        useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/zsh -G sudo,tty ${USERNAME}; \
+        useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/bash -G sudo,tty ${USERNAME}; \
     fi && \
     mkdir -p /etc/sudoers.d && \
     echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} && \
@@ -64,4 +65,4 @@ COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 WORKDIR /home/dev/code
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["zsh"]
+CMD ["bash"]

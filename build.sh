@@ -18,7 +18,6 @@ apt-get install -y --no-install-recommends \
     xz-utils \
     git \
     sudo \
-    zsh \
     gnupg \
     locales \
     tzdata \

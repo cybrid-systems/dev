@@ -12,7 +12,7 @@ fi
 echo "host arch: $(uname -m)"
 echo "image: ${IMAGE}"
 
-docker run --rm "$IMAGE" /bin/zsh -l -c '
+docker run --rm "$IMAGE" bash -c '
 set -euo pipefail
 echo "arch: $(uname -m)"
 echo "gcc: $(gcc --version | head -n 1)"
