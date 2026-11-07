@@ -24,6 +24,11 @@ echo "clang: $(clang --version | head -n 1)"
 echo "lld: $(ld.lld --version | head -n 1)"
 echo "clang-format: $(clang-format --version | head -n 1)"
 echo "clang-tidy: $(clang-tidy --version | head -n 1)"
+clang_ver=$(clang --version | sed -n "s/.*clang version \\([0-9.]*\\).*/\\1/p" | head -n 1)
+scan_ver=$(clang-scan-deps --version | sed -n "s/.*LLVM version \\([0-9.]*\\).*/\\1/p" | head -n 1)
+echo "clang-scan-deps: LLVM version ${scan_ver}"
+test -n "$clang_ver"
+test "$scan_ver" = "$clang_ver"
 echo "llvm-cov: $(llvm-cov --version | head -n 1)"
 echo "llvm-profdata: $(llvm-profdata --version | head -n 1)"
 llvm-config --link-static --libnames core orcjit native nativecodegen mc >/dev/null

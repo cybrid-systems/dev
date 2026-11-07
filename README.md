@@ -1,6 +1,6 @@
 # dev
 
-Ubuntu 26.10 image with the packages required to build Aura. Published as `ghcr.io/cybrid-systems/aura-ci:v0.1.0`. It does not replace `ghcr.io/cybrid-systems/dev`, which Aura CI still pins. GCC 16.2, CMake 4.5.0-rc3, Ninja 1.13.2, mold, libgit2, and LLVM 23.1.5 trimmed to the binaries and static libraries the Aura build links (`clang`, `clang-format`, `clang-tidy`, `llvm-cov`, `llvm-profdata`, `llvm-symbolizer`, `ld.lld`, and `core orcjit native nativecodegen mc`).
+Ubuntu 26.10 image with the packages required to build Aura. Published as `ghcr.io/cybrid-systems/aura-ci:v0.1.0`. It does not replace `ghcr.io/cybrid-systems/dev`, which Aura CI still pins. GCC 16.2, CMake 4.5.0-rc3, Ninja 1.13.2, mold, libgit2, and LLVM 23.1.5 trimmed to the binaries and static libraries the Aura build links (`clang`, `clang-scan-deps`, `clang-format`, `clang-tidy`, `llvm-cov`, `llvm-profdata`, `llvm-symbolizer`, `ld.lld`, and `core orcjit native nativecodegen mc`).
 
 Not in the image: Emacs, Node, pnpm, Rust, OpenClaw, Flang, MLIR, LLDB. A build needs about 15GB of temporary disk while the LLVM tarball is unpacked. Unused files are deleted in that same `RUN`.
 

@@ -3,6 +3,7 @@
 # links and runs. The upstream tarball is ~12GB unpacked (Flang, MLIR, LLDB,
 # every target's static archives, and statically linked tools). Aura needs:
 #   - clang/clang++            module BMI build and clang-tidy compile DB
+#   - clang-scan-deps          same-version scanner next to clang++
 #   - clang-format, clang-tidy gate
 #   - llvm-cov, llvm-profdata  ./build.py coverage
 #   - llvm-symbolizer          ASan/UBSan/TSan stacks
@@ -87,6 +88,7 @@ ln -sfn "clang-${major}" "$PREFIX/bin/clang"
 ln -sfn clang "$PREFIX/bin/clang++"
 install_file bin/clang-format
 install_file bin/clang-tidy
+install_file bin/clang-scan-deps
 install_file bin/lld
 ln -sfn lld "$PREFIX/bin/ld.lld"
 for tool in llvm-config llvm-cov llvm-profdata llvm-symbolizer; do
@@ -159,6 +161,7 @@ for bin in \
     "$PREFIX/bin/clang-${major}" \
     "$PREFIX/bin/clang-format" \
     "$PREFIX/bin/clang-tidy" \
+    "$PREFIX/bin/clang-scan-deps" \
     "$PREFIX/bin/lld" \
     "$PREFIX/bin/llvm-config" \
     "$PREFIX/bin/llvm-cov" \
@@ -211,6 +214,15 @@ rm -rf "$smoke"
 clang --version | head -n 1
 clang-format --version | head -n 1
 clang-tidy --version | head -n 1
+scan_line=$(clang-scan-deps --version | grep -m1 'LLVM version' || true)
+echo "clang-scan-deps: ${scan_line}"
+case "$scan_line" in
+    *"LLVM version ${LLVM_VERSION}"*) ;;
+    *)
+        echo "clang-scan-deps is not LLVM ${LLVM_VERSION}" >&2
+        exit 1
+        ;;
+esac
 llvm-cov --version | head -n 1
 llvm-profdata --version | head -n 1
 ld.lld --version | head -n 1
