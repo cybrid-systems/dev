@@ -1,15 +1,14 @@
 FROM ubuntu:26.10
 
 # Aura-minimal image.
-# Ubuntu 26.10, GCC 16.2, CMake 4.5.0-rc3 (newest Kitware release; 4.4.5 is
-# the newest stable), Ninja 1.13.2, LLVM 23.1.5 trimmed to the binaries and
-# static libraries Aura's CMake build actually links.
+# Ubuntu 26.10, GCC 16.2, CMake 4.5.0, Ninja 1.13.2, LLVM 23.1.5 trimmed to
+# the binaries and static libraries Aura's CMake build actually links.
 # Also: mold, ld.lld, libgit2, Python 3, ruff, pexpect.
 # Not installed: zsh, Emacs and its X11/GTK stack, Node, pnpm, Rust,
 # OpenClaw, Flang, MLIR, LLDB, and the rest of the upstream LLVM tarball.
 # The default shell is bash, which Ubuntu already ships.
 
-ARG CMAKE_VERSION=4.5.0-rc3
+ARG CMAKE_VERSION=4.5.0
 ARG LLVM_VERSION=23.1.5
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=en_US.UTF-8 \

@@ -5,7 +5,7 @@
 set -euo pipefail
 
 GCC_VERSION="${GCC_VERSION:-16}"
-CMAKE_VERSION="${CMAKE_VERSION:-4.5.0-rc3}"
+CMAKE_VERSION="${CMAKE_VERSION:-4.5.0}"
 export DEBIAN_FRONTEND=noninteractive
 export TZ="${TZ:-Asia/Shanghai}"
 
