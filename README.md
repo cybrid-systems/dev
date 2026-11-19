@@ -26,7 +26,7 @@ deploy both
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
     -t ghcr.io/cybrid-systems/dev \
-    -t ghcr.io/cybrid-systems/dev:v1.1.1 \
+    -t ghcr.io/cybrid-systems/dev:v1.1.2 \
     . --push
 ```
 
@@ -55,7 +55,7 @@ docker buildx imagetools create \
   ghcr.io/cybrid-systems/dev:amd64 \
   ghcr.io/cybrid-systems/dev:arm64 \
   -t ghcr.io/cybrid-systems/dev:latest \
-  -t ghcr.io/cybrid-systems/dev:v1.1.1
+  -t ghcr.io/cybrid-systems/dev:v1.1.2
 ```
 
 inspect
@@ -104,14 +104,14 @@ docker exec -it -u dev angel /bin/zsh -l
 ## openclaw
 
 ```bash
-pnpm add -g openclaw@2026.10.7
+pnpm add -g openclaw@2026.11.5
 openclaw onboard
 openclaw config set gateway.bind lan
 openclaw config set agents.defaults.workspace ~/code/workspace
 openclaw onboard --auth-choice deepseek-api-key
-openclaw onboard --auth-choice zai-coding-cn
+openclaw onboard --auth-choice qwen-token-plan-cn
 echo "ghp_*" > ~/.github-token
-openclaw models list --provider zai
+openclaw models list --provider qwen-token-plan
 openclaw models set zai/glm-5.3
 openclaw gateway
 ```

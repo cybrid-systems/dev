@@ -8,7 +8,7 @@ export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-/usr/local/lib64}"
 export HOME=/home/dev # 显式设置
 
 # ==================== CMake（官方二进制，用 Python 解压） ====================
-CMAKE_VERSION=4.5.0-rc2
+CMAKE_VERSION=4.5.0
 ARCH=$(uname -m)
 case "$ARCH" in
   x86_64)
