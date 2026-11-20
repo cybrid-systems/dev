@@ -2,7 +2,7 @@
 # Smoke-test the Aura-minimal image. Override the tag with IMAGE=...
 set -euo pipefail
 
-IMAGE="${IMAGE:-ghcr.io/cybrid-systems/aura-ci:v0.1.1}"
+IMAGE="${IMAGE:-ghcr.io/cybrid-systems/aura-ci:v0.1.2}"
 
 if ! command -v docker >/dev/null 2>&1; then
     echo "docker is not installed" >&2

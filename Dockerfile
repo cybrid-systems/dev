@@ -9,7 +9,7 @@ FROM ubuntu:26.10
 # The default shell is bash, which Ubuntu already ships.
 
 ARG CMAKE_VERSION=4.5.0
-ARG LLVM_VERSION=23.1.5
+ARG LLVM_VERSION=23.1.6
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=en_US.UTF-8 \
     TZ=Asia/Shanghai \
