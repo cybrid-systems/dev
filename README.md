@@ -104,10 +104,12 @@ docker exec -it -u dev angel /bin/zsh -l
 ## openclaw
 
 ```bash
-pnpm add -g openclaw@2026.11.6
+curl -fsSL https://openclaw.ai/install.sh | bash
+export PATH='/home/dev/.npm-global/bin':"$PATH"; hash -r
 openclaw onboard
 openclaw config set gateway.bind lan
 openclaw config set agents.defaults.workspace ~/code/workspace
+openclaw channels add --channel telegram --token "你的BotToken"
 echo "ghp_*" > ~/.github-token
 openclaw gateway
 ```
